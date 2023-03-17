@@ -6,7 +6,7 @@ Planned features:
 3. "Card" awareness (In discord that looks like buttons when interacting with the bot)
 
 Local use: 
-Start the bot from the commandline and pass it a Discord Token (obtained from [here](https://discord.com/developers/applications)) and an Open AI API key (obtained from (here)[https://platform.openai.com/account/api-keys]). 
+Start the bot from the commandline and pass it a Discord Token (obtained from [here](https://discord.com/developers/applications)) and an Open AI API key (obtained from [here](https://platform.openai.com/account/api-keys)). 
 The command should look like this: `.\FalconsRoost.exe --dt <DiscordToken> --oa <OpenAIAPIKey>`
 
 Developer Environment:
