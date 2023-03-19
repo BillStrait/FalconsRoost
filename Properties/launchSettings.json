@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "FalconsRoost": {
+      "commandName": "Project"
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}

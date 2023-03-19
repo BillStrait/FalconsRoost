@@ -19,13 +19,18 @@ namespace FalconsRoost
     {
         private static GPT3Bot bot;
 
-        private static string versionNumber = "0.0.0.4";
-
+        private static string versionNumber = "0.0.0.5";
+        private static bool _trace = false;
         private static IConfigurationRoot _config;
 
         private static void Main(string[] args)
         {
-            if (args.Any((string c) => c.ToLower().StartsWith("--dt")) && args.Any((string c) => c.ToLower().StartsWith("--oa")))
+            if (args.Any(c => c.ToLower() == "trace"))
+            {
+                _trace = true;
+                Console.WriteLine("Tracing is enabled.");
+            }
+            if (args.Any((string c) => c.ToLower().StartsWith("dt=")) && args.Any((string c) => c.ToLower().StartsWith("oa=")))
             {
                 MemoryConfigSetUp(args);
             }
@@ -48,23 +53,29 @@ namespace FalconsRoost
             string oa = string.Empty;
             for (int i = 0; i < args.Length; i++)
             {
-                if (args[i].ToLower().StartsWith("--dt"))
+                if (args[i].ToLower().StartsWith("dt="))
                 {
-                    dt = args[i + 1];
+                    dt = args[i].Substring(3);
                 }
-                if (args[i].ToLower().StartsWith("--oa"))
+                if (args[i].ToLower().StartsWith("oa="))
                 {
-                    oa = args[i + 1];
+                    oa = args[i].Substring(3);
                 }
             }
             if (!string.IsNullOrEmpty(dt) && !string.IsNullOrEmpty(oa))
             {
+                if (_trace)
+                {
+                    Console.WriteLine($"It appears we are good to go with the command line arguments. We got {dt} for the discord token and {oa} for the OpenAI key.");
+                }
+
                 _config = new ConfigurationBuilder().SetBasePath(AppDomain.CurrentDomain.BaseDirectory).AddInMemoryCollection
                     (
                         new List<KeyValuePair<string, string?>>
                         {
                                 new KeyValuePair<string, string?>("DiscordToken", dt),
-                                new KeyValuePair<string, string?>("OpenAI", oa)
+                                new KeyValuePair<string, string?>("OpenAI", oa),
+                                new KeyValuePair<string, string?>("Trace", _trace.ToString())
                         }
                     )
                     .Build();
@@ -80,7 +91,17 @@ namespace FalconsRoost
         /// </summary>
         private static void SecretConfigSetUp()
         {
-            _config = new ConfigurationBuilder().SetBasePath(AppDomain.CurrentDomain.BaseDirectory).AddUserSecrets<Program>().Build();
+            _config = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddUserSecrets<Program>()
+                .AddInMemoryCollection
+                    (
+                        new List<KeyValuePair<string, string?>>
+                        {
+                                new KeyValuePair<string, string?>("Trace", _trace.ToString())
+                        }
+                    )
+                .Build();
         }
 
         private static async Task MainAsync()
@@ -91,7 +112,7 @@ namespace FalconsRoost
                 TokenType = TokenType.Bot,
                 Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents)
             });
-            Console.WriteLine("I've started up.");
+            Console.WriteLine($"I've started up with version {versionNumber}.");
             discord.MessageCreated += async delegate (DiscordClient s, MessageCreateEventArgs e)
             {
                 Console.WriteLine("I've caught a message. It says " + e.Message);
