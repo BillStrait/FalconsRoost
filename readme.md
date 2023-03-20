@@ -17,10 +17,11 @@ The included dockerfile is targeting a Raspberry Pi 4 running Ubuntu 20.04. To u
 1. Install docker on your raspberry pi - I followed the instructions found [here](https://phoenixnap.com/kb/docker-on-raspberry-pi).
 2. Install docker on your development machine - I installed it on windows from [here](https://www.docker.com/).
 3. Modify the docker file.
-	a. On line 20 you will find `CMD` - you will modify the arguements between the `[]`.
-	b. "trace" can be removed if you want to disable tracing. It will add some useful, but not always relevant, information to your log.
-	c. Change 'YourDiscordToken' to your Discord token. Leave the `dt=` in front of it.
-	d. Change 'YourOpenAPIKey' to your OpenAI API key. Leave the `oa=` in front of it.
+	a. Rename/Copy `dockerfile-Template` to `dockerfile.` It's a good idea to add dockerfile to your .gitignore list, as we're about to put some sensitive information in it.
+	b. On line 20 you will find `CMD` - you will modify the arguements between the `[]`.
+	c. "trace" can be removed if you want to disable tracing. It will add some useful, but not always relevant, information to your log.
+	d. Change 'YourDiscordToken' to your Discord token. Leave the `dt=` in front of it.
+	e. Change 'YourOpenAPIKey' to your OpenAI API key. Leave the `oa=` in front of it.
 4. Open a command line/powershell/bash terminal in the project's root directory. (You're using [Windows Terminal](https://www.microsoft.com/store/productId/9N0DX20HK701) right?).
 5. Run `docker build --no-cache -t falconsroost .` This will tell Docker to execute the instructions in the dockerfile to create an image for the application.
 6. Run `docker save falconsroost:latest -o fr.tar` This will tell docker to export the image you created to a file called "fr.tar"
