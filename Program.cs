@@ -1,15 +1,18 @@
 ﻿// FalconsRoost.Program
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DSharpPlus;
+using DSharpPlus.CommandsNext;
 using DSharpPlus.EventArgs;
 using FalconsRoost;
 using FalconsRoost.Bots;
 using FalconsRoost.Models;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FalconsRoost
 {
@@ -20,8 +23,9 @@ namespace FalconsRoost
         private static GPT3Bot bot;
 
         private static string versionNumber = "0.0.0.5";
-        private static bool _trace = false;
+
         private static IConfigurationRoot _config;
+        private static bool _trace = false;
 
         private static void Main(string[] args)
         {
@@ -98,7 +102,8 @@ namespace FalconsRoost
                     (
                         new List<KeyValuePair<string, string?>>
                         {
-                                new KeyValuePair<string, string?>("Trace", _trace.ToString())
+                            new KeyValuePair<string, string?>("VersionNumber", versionNumber),
+                            new KeyValuePair<string, string?>("Trace", _trace.ToString())
                         }
                     )
                 .Build();
@@ -112,65 +117,30 @@ namespace FalconsRoost
                 TokenType = TokenType.Bot,
                 Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents)
             });
-            Console.WriteLine($"I've started up with version {versionNumber}.");
+
+            ServiceProvider services = new ServiceCollection()
+                .AddSingleton<IConfigurationRoot>(_config)
+                .BuildServiceProvider();
+
+            Console.WriteLine("I've started up.");
             discord.MessageCreated += async delegate (DiscordClient s, MessageCreateEventArgs e)
             {
                 Console.WriteLine("I've caught a message. It says " + e.Message);
             };
-            discord.MessageCreated += Discord_MessageCreated;
-            discord.MessageCreated += bot.HandleCommandAsync;
+
+            var commands = discord.UseCommandsNext(new CommandsNextConfiguration()
+            {
+                Services = services,
+                StringPrefixes = new[] { "!" }
+            });
+
+            commands.RegisterCommands<BaseBot>();
+            commands.RegisterCommands<GPT3Bot>();
+
             await discord.ConnectAsync();
             await Task.Delay(-1);
         }
 
-        private static async Task Discord_MessageCreated(DiscordClient sender, MessageCreateEventArgs e)
-        {
-            string[] words = e.Message.Content.ToLower().Split(' ');
-            string command = words[0];
-            if (command.StartsWith('!'))
-            {
-                switch (command)
-                {
-                    case "!awake":
-                        await e.Message.RespondAsync("I'm here boss. You got me on the internet. Good job. My version number is " + versionNumber + ".");
-                        break;
-                    case "!name":
-                        await e.Message.RespondAsync("I think your name is " + e.Author.Username);
-                        break;
-                    case "!quickfight":
-                        {
-                            Battle battle = new Battle(e.Author);
-                            await e.Message.RespondAsync(battle.QuickBattle());
-                            break;
-                        }
-                    case "!commands":
-                        await GetCommands(e);
-                        break;
-                    case "!help":
-                        await GetCommands(e);
-                        break;
-                    case "!h":
-                        await GetCommands(e);
-                        break;
-                    case "!command":
-                        await GetCommands(e);
-                        break;
-                    default:
-                        await e.Message.RespondAsync("I'm not sure what you said. Try something else, use !commands for a list of what I can do. For the record, you said " + command + ".");
-                        break;
-                }
-            }
-        }
 
-        private static async Task GetCommands(MessageCreateEventArgs e)
-        {
-            List<string> commands = new List<string> { "There are two types of commands. ! are free. $ cost the bot a little bit of money.", "!awake - Make sure the bot is awake.", "!name - Make sure the bot knows your name.", "!quickfight - have the bot generate a battle for you.", "!commands - returns this dialog.", "$write <sentence fragment> - currently this command attempts to complete a sentence.", "$draw <prompt> - This asks Dall-E 2 to generate an image based on the prompt.", "$edit -i <instructions> -t <text> - This will attempt to edit the text using the instructions provided.", "$chat <prompt> - This will ask ChatGPT to respond based on your current context. Context resets after 1 hour of inactivity." };
-            StringBuilder sb = new StringBuilder();
-            foreach (string command in commands)
-            {
-                sb.AppendLine(command);
-            }
-            await e.Message.RespondAsync(sb.ToString());
-        }
     }
 }

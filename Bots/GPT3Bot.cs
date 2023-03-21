@@ -1,6 +1,8 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text;
 using DSharpPlus;
+using DSharpPlus.CommandsNext;
+using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using FalconsRoost.Models;
@@ -15,17 +17,14 @@ using OpenAI.GPT3.ObjectModels.SharedModels;
 
 namespace FalconsRoost.Bots
 {
-    public class GPT3Bot
+    public class GPT3Bot : BaseCommandModule
     {
         private OpenAIService _ai;
         private ChatContextManager _chatContextManager;
-
-        public GPT3Bot()
-        {
-        }
-
+        private IConfigurationRoot _config;
         public GPT3Bot(IConfigurationRoot config)
         {
+            _config = config;
             _ai = new OpenAIService(new OpenAiOptions
             {
                 ApiKey = config.GetValue<string>("OpenAI")
@@ -33,32 +32,8 @@ namespace FalconsRoost.Bots
             _chatContextManager = new ChatContextManager();
         }
 
-        public async Task HandleCommandAsync(DiscordClient sender, MessageCreateEventArgs e)
-        {
-            DiscordMessage msg = e.Message;
-            if (!(msg == null) && !msg.Author.IsBot && msg.Content.StartsWith("$"))
-            {
-                string command = msg.Content.Substring(1);
-                if (command.ToLower().StartsWith("write"))
-                {
-                    await Completion(e, command.Substring(5));
-                }
-                else if (command.ToLower().StartsWith("draw"))
-                {
-                    await Draw(e, command.Substring(4));
-                }
-                else if (command.ToLower().StartsWith("edit"))
-                {
-                    await Edit(e, command.Substring(4));
-                }
-                else if (command.ToLower().StartsWith("chat"))
-                {
-                    await Chat(e, command.Substring(4));
-                }
-            }
-        }
-
-        public async Task Edit(MessageCreateEventArgs e, string prompt)
+        [Command("edit"), Description("-i <instructions> -t <text> - This will attempt to edit the text using the instructions provided.")]
+        public async Task Edit(CommandContext ctx, [RemainingText] string prompt)
         {
             string[] strings = prompt.Split('-');
             string input = string.Empty;
@@ -85,7 +60,7 @@ namespace FalconsRoost.Bots
             }
             if (string.IsNullOrEmpty(input) || string.IsNullOrEmpty(command))
             {
-                await e.Message.RespondAsync("The edit command was not formatted correctly. We need to see '-i' followed by instructions and '-t' with the text.");
+                await ctx.RespondAsync("The edit command was not formatted correctly. We need to see '-i' followed by instructions and '-t' with the text.");
                 return;
             }
             EditCreateRequest request = new EditCreateRequest
@@ -107,20 +82,21 @@ namespace FalconsRoost.Bots
                     {
                         sb.AppendLine(i + 1 + response.Choices[i].Text);
                     }
-                    await e.Message.RespondAsync(sb.ToString());
+                    await ctx.RespondAsync(sb.ToString());
                 }
                 else
                 {
-                    await e.Message.RespondAsync(response.Choices[0].Text);
+                    await ctx.RespondAsync(response.Choices[0].Text);
                 }
             }
             else
             {
-                await BotError(e, response);
+                await BotError(ctx, response);
             }
         }
 
-        public async Task Draw(MessageCreateEventArgs e, string prompt)
+        [Command("draw"), Description("<prompt> - This asks Dall-E 2 to generate an image based on the prompt.")]
+        public async Task Draw(CommandContext ctx, [RemainingText] string prompt)
         {
             ImageCreateResponse response = await _ai.Image.CreateImage(new ImageCreateRequest
             {
@@ -128,10 +104,10 @@ namespace FalconsRoost.Bots
                 N = 4,
                 Size = StaticValues.ImageStatics.Size.Size1024,
                 ResponseFormat = StaticValues.ImageStatics.ResponseFormat.Url,
-                User = e.Author.Username
+                User = ctx.User.Username
             });
 
-            Console.WriteLine($"We're creating an image for {e.Author.Username}. Their prompt was: {prompt}");
+            Console.WriteLine($"We're creating an image for {ctx.User.Username}. Their prompt was: {prompt}");
             Console.WriteLine(response);
             if (response.Successful)
             {
@@ -155,15 +131,16 @@ namespace FalconsRoost.Bots
                 }
                 builder.AddFiles(files);
                 builder.Content = "These are the results we got back from OpenAI's Dall-E 2:";
-                await e.Message.RespondAsync(builder);
+                await ctx.RespondAsync(builder);
             }
             else
             {
-                await BotError(e, response);
+                await BotError(ctx, response);
             }
         }
 
-        public async Task Completion(MessageCreateEventArgs e, string prompt)
+        [Command("write"), Description("<sentence fragment> - currently this command attempts to complete a sentence.")]
+        public async Task Completion(CommandContext ctx, [RemainingText] string prompt)
         {
             CompletionCreateResponse response = await _ai.Completions.CreateCompletion(new CompletionCreateRequest
             {
@@ -179,30 +156,30 @@ namespace FalconsRoost.Bots
                 {
                     Console.WriteLine(choice);
                 }
-                await e.Message.RespondAsync(response.Choices[0].Text);
+                await ctx.RespondAsync(response.Choices[0].Text);
             }
             else
             {
-                await BotError(e, response);
+                await BotError(ctx, response);
             }
         }
 
-        public async Task Chat(MessageCreateEventArgs e, string prompt)
+        [Command("chat"), Description("<prompt> - This will ask ChatGPT to respond based on your current context. Context resets after 1 hour of inactivity.")]
+        public async Task Chat(CommandContext ctx, [RemainingText] string prompt)
         {
-            MessageCreateEventArgs e2 = e;
             ChatContext chatContext = new ChatContext();
-            if (_chatContextManager.ChatContexts.Any((ChatContext c) => c.UserId == e2.Author.Username && c.TimeStamp.CompareTo(DateTime.Now.AddHours(-1.0)) >= 0))
+            if (_chatContextManager.ChatContexts.Any((ChatContext c) => c.UserId == ctx.User.Username && c.TimeStamp.CompareTo(DateTime.Now.AddHours(-1.0)) >= 0))
             {
-                chatContext = _chatContextManager.ChatContexts.First((ChatContext c) => c.UserId == e2.Author.Username && c.TimeStamp.CompareTo(DateTime.Now.AddHours(-1.0)) >= 0);
+                chatContext = _chatContextManager.ChatContexts.First((ChatContext c) => c.UserId == ctx.User.Username && c.TimeStamp.CompareTo(DateTime.Now.AddHours(-1.0)) >= 0);
             }
             else
             {
                 _chatContextManager.ChatContexts.Add(new ChatContext
                 {
-                    UserId = e2.Author.Username
+                    UserId = ctx.User.Username
                 });
             }
-            chatContext.Messages.Add(ChatMessage.FromUser(e2.Message.Content));
+            chatContext.Messages.Add(ChatMessage.FromUser(prompt));
             chatContext.TimeStamp = DateTime.Now;
             ChatCompletionCreateResponse completionResult = await _ai.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
             {
@@ -228,7 +205,7 @@ namespace FalconsRoost.Bots
                         }
                         if (sentence.Length <= 2000)
                         {
-                            await e2.Message.RespondAsync("I'm sorry, part of this response is just too long to send over discord. Try asking for something simplier.");
+                            await ctx.RespondAsync("I'm sorry, part of this response is just too long to send over discord. Try asking for something simplier.");
                             break;
                         }
                         smallerResponses.Add(smallerResponse);
@@ -236,12 +213,12 @@ namespace FalconsRoost.Bots
                     }
                     foreach (string sResponse in smallerResponses)
                     {
-                        await e2.Message.RespondAsync(sResponse);
+                        await ctx.RespondAsync(sResponse);
                     }
                 }
                 else
                 {
-                    await e2.Message.RespondAsync(response);
+                    await ctx.RespondAsync(response);
                 }
             }
             else
@@ -250,14 +227,14 @@ namespace FalconsRoost.Bots
                 {
                     throw new Exception("Unknown Error");
                 }
-                await BotError(e2, completionResult);
+                await BotError(ctx, completionResult);
             }
         }
 
-        private async Task BotError(MessageCreateEventArgs e, BaseResponse response)
+        private async Task BotError(CommandContext ctx, BaseResponse response)
         {
             Console.WriteLine(response);
-            await e.Message.RespondAsync("There was a problem working with OpenAI. Please contact my maker if this keeps happening.");
+            await ctx.RespondAsync("There was a problem working with OpenAI. Please contact my maker if this keeps happening.");
         }
     }
 }
