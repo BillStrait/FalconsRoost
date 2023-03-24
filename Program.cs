@@ -55,6 +55,7 @@ namespace FalconsRoost
         {
             string dt = string.Empty;
             string oa = string.Empty;
+            string sqlP = string.Empty;
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i].ToLower().StartsWith("dt="))
@@ -64,6 +65,10 @@ namespace FalconsRoost
                 if (args[i].ToLower().StartsWith("oa="))
                 {
                     oa = args[i].Substring(3);
+                }
+                if (args[i].ToLower().StartsWith("sqlpassword="))
+                {
+                    sqlP = args[i].Substring("sqlpassword=".Length);
                 }
             }
             if (!string.IsNullOrEmpty(dt) && !string.IsNullOrEmpty(oa))
@@ -79,7 +84,12 @@ namespace FalconsRoost
                         {
                                 new KeyValuePair<string, string?>("DiscordToken", dt),
                                 new KeyValuePair<string, string?>("OpenAI", oa),
+                                new KeyValuePair<string, string?>("FRDBConnection", $"server=mysql; database=falconsroostdb; user=root; password={sqlP}"),
+                                new KeyValuePair<string, string?>("versionNumber", versionNumber),
                                 new KeyValuePair<string, string?>("Trace", _trace.ToString())
+{
+
+                                }
                         }
                     )
                     .Build();

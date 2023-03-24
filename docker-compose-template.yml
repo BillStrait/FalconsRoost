@@ -1,0 +1,13 @@
+services:
+    mysql:
+        image: mysql:8.0
+        volumes: 
+            - falcons-roost-volume:/var/lib/mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: YourSQLPassword
+            MYSQL_DATABASE: falconsroostdb
+    falconsroost:
+        image: billstriat/falconsroost:latest
+        command: "trace dt=YourDiscordToken oa=YourOpenAIKey sqlpassword=YourSQLPassword"
+volumes:
+    falcons-roost-volume:
