@@ -6,8 +6,10 @@ services:
         environment:
             MYSQL_ROOT_PASSWORD: YourSQLPassword
             MYSQL_DATABASE: falconsroostdb
+        restart: always
     falconsroost:
         image: billstriat/falconsroost:latest
         command: "trace dt=YourDiscordToken oa=YourOpenAIKey sqlpassword=YourSQLPassword"
+        restart: always
 volumes:
     falcons-roost-volume:
