@@ -18,6 +18,9 @@ The command should look like this: `.\FalconsRoost.exe --dt <DiscordToken> --oa 
 To save yourself some headache, you can add User Secrets for the Discord Token and Open AI API key. Follow the instructions [here](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-7.0&tabs=windows) - specifically under the "Enable Secret Storage" and "Set a Secret" headings. The secrets are expected to be named "DiscordToken" and "OpenAI". 
 
 ## Docker Installation
+
+Download and install [Docker Engine](https://docs.docker.com/engine/) and [Docker Compose](https://docs.docker.com/compose/).
+
 Copy the following into a file named `docker-compose.yml`
 ``` 
 services:
@@ -29,10 +32,11 @@ services:
             MYSQL_ROOT_PASSWORD: YourSQLPassword
             MYSQL_DATABASE: falconsroostdb
     falconsroost:
-        image: billstriat/falconsroost:latest
+        image: billstrait/falconsroost:latest
         command: "trace dt=YourDiscordToken oa=YourOpenAIKey sqlpassword=YourSQLPassword"
 volumes:
     falcons-roost-volume:
 ```
 
 Change `YourSQLPassword` your password. It should be the same in both the `mysql` and `falconsroost` sections. You will also want to update `YourDiscordToken` and `YourOpenAPIKey` to match the appropriate values. 
+Run the command `docker compose -f .\docker-compose.yml up`
