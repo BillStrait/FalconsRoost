@@ -1,6 +1,6 @@
-﻿using System;
+﻿using OpenAI.ObjectModels.RequestModels;
+using System;
 using System.Collections.Generic;
-using OpenAI.GPT3.ObjectModels.RequestModels;
 
 namespace FalconsRoost.Models
 {

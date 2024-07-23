@@ -1,5 +1,7 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Net.WebSockets;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Xml.Linq;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
@@ -7,13 +9,14 @@ using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using FalconsRoost.Models;
 using Microsoft.Extensions.Configuration;
-using OpenAI.GPT3;
-using OpenAI.GPT3.Managers;
-using OpenAI.GPT3.ObjectModels;
-using OpenAI.GPT3.ObjectModels.RequestModels;
-using OpenAI.GPT3.ObjectModels.ResponseModels;
-using OpenAI.GPT3.ObjectModels.ResponseModels.ImageResponseModel;
-using OpenAI.GPT3.ObjectModels.SharedModels;
+using OpenAI;
+using OpenAI.Extensions;
+using OpenAI.Managers;
+using OpenAI.ObjectModels;
+using OpenAI.ObjectModels.RequestModels;
+using OpenAI.ObjectModels.ResponseModels;
+using OpenAI.ObjectModels.ResponseModels.ImageResponseModel;
+using OpenAI.ObjectModels.SharedModels;
 
 namespace FalconsRoost.Bots
 {
@@ -67,7 +70,7 @@ namespace FalconsRoost.Bots
             {
                 Input = input,
                 Temperature = 0.5f,
-                Model = OpenAI.GPT3.ObjectModels.Models.TextDavinciV3,
+                Model = OpenAI.ObjectModels.Models.TextDavinciV3,
                 Instruction = command
             };
             Console.WriteLine(request);
@@ -145,7 +148,7 @@ namespace FalconsRoost.Bots
             CompletionCreateResponse response = await _ai.Completions.CreateCompletion(new CompletionCreateRequest
             {
                 Prompt = prompt,
-                Model = OpenAI.GPT3.ObjectModels.Models.TextDavinciV3
+                Model = OpenAI.ObjectModels.Models.Gpt_3_5_Turbo_Instruct
             });
             Console.WriteLine(response);
             if (response.Successful)
@@ -167,6 +170,94 @@ namespace FalconsRoost.Bots
         [Command("chat"), Description("<prompt> - This will ask ChatGPT to respond based on your current context. Context resets after 1 hour of inactivity.")]
         public async Task Chat(CommandContext ctx, [RemainingText] string prompt)
         {
+            ChatContext chatContext = GetChatContext(ctx);
+
+            chatContext.Messages.Add(ChatMessage.FromUser(prompt));
+            chatContext.TimeStamp = DateTime.Now;
+            ChatCompletionCreateResponse completionResult = await _ai.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Messages = chatContext.Messages,
+                Model = OpenAI.ObjectModels.Models.Gpt_4
+            });
+            if (completionResult.Successful)
+            {
+                string response = completionResult.Choices?.First()?.Message?.Content ?? "There was an error.";
+                chatContext.Messages.Add(ChatMessage.FromAssistant(response));
+                await SendPotentallyLongResponse(response, ctx);
+            }
+            else
+            {
+                if (completionResult.Error == null)
+                {
+                    throw new Exception("Unknown Error");
+                }
+                await BotError(ctx, completionResult);
+            }
+        }
+
+        [Command("whois"), Description("<person> - Attempts to provide information about a person or company.")]
+        public async Task WhoIs(CommandContext ctx, [RemainingText] string Prompt)
+        {
+            var response = await _ai.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
+            {
+                Model = OpenAI.ObjectModels.Models.Gpt_4,
+                Messages = new List<ChatMessage>
+                {
+                    ChatMessage.FromUser($"Please return a grounded response. I want details on {Prompt}. If they are a fictional person, include who created them and when. If they are a comic character, include their first appearance. If they are a company, tell me their revenue and primary leadership.")
+                }
+            });
+
+            Console.WriteLine(response);
+            if (response.Successful)
+            {
+                var context = GetChatContext(ctx);
+                var responseMessage = response.Choices?.First()?.Message?.Content ?? "There was an error.";
+                context.Messages.Add(ChatMessage.FromAssistant(responseMessage));
+                SendPotentallyLongResponse(responseMessage, ctx);
+            }
+            else
+            {
+                await BotError(ctx, response);
+            }
+        }
+
+        private async Task SendPotentallyLongResponse(string response, CommandContext ctx)
+        {
+            if (response.Length > 2000)
+            {
+                string[] sentences = response.Split('.');
+                string smallerResponse = "";
+                List<string> smallerResponses = new List<string>();
+                string[] array = sentences;
+                foreach (string sentence in array)
+                {
+                    if (smallerResponse.Length + sentence.Length <= 2000)
+                    {
+                        smallerResponse = smallerResponse + " " + sentence;
+                        continue;
+                    }
+                    if (sentence.Length <= 2000)
+                    {
+                        await ctx.RespondAsync("I'm sorry, part of this response is just too long to send over discord. Try asking for something simplier.");
+                        break;
+                    }
+                    smallerResponses.Add(smallerResponse);
+                    smallerResponse = sentence;
+                }
+                foreach (string sResponse in smallerResponses)
+                {
+                    await ctx.RespondAsync(sResponse);
+                }
+            }
+            else
+            {
+                await ctx.RespondAsync(response);
+            }
+        }
+
+
+        private ChatContext GetChatContext(CommandContext ctx)
+        {
             ChatContext chatContext = new ChatContext();
             if (_chatContextManager.ChatContexts.Any((ChatContext c) => c.UserId == ctx.User.Username && c.TimeStamp.CompareTo(DateTime.Now.AddHours(-1.0)) >= 0))
             {
@@ -179,56 +270,7 @@ namespace FalconsRoost.Bots
                     UserId = ctx.User.Username
                 });
             }
-            chatContext.Messages.Add(ChatMessage.FromUser(prompt));
-            chatContext.TimeStamp = DateTime.Now;
-            ChatCompletionCreateResponse completionResult = await _ai.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
-            {
-                Messages = chatContext.Messages,
-                Model = "gpt-4"
-            });
-            if (completionResult.Successful)
-            {
-                string response = completionResult.Choices.First().Message.Content;
-                chatContext.Messages.Add(ChatMessage.FromAssistant(response));
-                if (response.Length > 2000)
-                {
-                    string[] sentences = response.Split('.');
-                    string smallerResponse = "";
-                    List<string> smallerResponses = new List<string>();
-                    string[] array = sentences;
-                    foreach (string sentence in array)
-                    {
-                        if (smallerResponse.Length + sentence.Length <= 2000)
-                        {
-                            smallerResponse = smallerResponse + " " + sentence;
-                            continue;
-                        }
-                        if (sentence.Length <= 2000)
-                        {
-                            await ctx.RespondAsync("I'm sorry, part of this response is just too long to send over discord. Try asking for something simplier.");
-                            break;
-                        }
-                        smallerResponses.Add(smallerResponse);
-                        smallerResponse = sentence;
-                    }
-                    foreach (string sResponse in smallerResponses)
-                    {
-                        await ctx.RespondAsync(sResponse);
-                    }
-                }
-                else
-                {
-                    await ctx.RespondAsync(response);
-                }
-            }
-            else
-            {
-                if (completionResult.Error == null)
-                {
-                    throw new Exception("Unknown Error");
-                }
-                await BotError(ctx, completionResult);
-            }
+            return chatContext;
         }
 
         private async Task BotError(CommandContext ctx, BaseResponse response)

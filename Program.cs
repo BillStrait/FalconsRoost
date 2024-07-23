@@ -22,7 +22,7 @@ namespace FalconsRoost
     {
         private static GPT3Bot bot;
 
-        private static string versionNumber = "0.0.0.5";
+        private static string versionNumber = "0.0.0.6";
 
         private static IConfigurationRoot _config;
         private static bool _trace = false;
@@ -125,7 +125,8 @@ namespace FalconsRoost
             {
                 Token = _config.GetValue<string>("DiscordToken"),
                 TokenType = TokenType.Bot,
-                Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents)
+                Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents),
+
             });
 
             ServiceProvider services = new ServiceCollection()
