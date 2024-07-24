@@ -10,10 +10,10 @@ COPY . ./
 # Restore as distinct layers
 RUN dotnet restore
 # Build and publish a release
-RUN dotnet publish --runtime linux-arm64 --self-contained -c Release -o out
+RUN dotnet publish --runtime linux-x64 --self-contained -c Release -o out
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine-arm64v8
+FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine-amd64
 WORKDIR /App
 COPY --from=build-env /App/out .
 ENTRYPOINT ["dotnet", "FalconsRoost.dll"]
