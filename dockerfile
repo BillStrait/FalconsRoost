@@ -18,7 +18,11 @@ RUN if [ "$DOCKER_TAG" = "LinuxAMD64" ]; then \
     fi
 
 # Runtime image
-FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/runtime:8.0
+FROM if [ "$DOCKER_TAG" = "LinuxAMD64" ]; then \
+        mcr.microsoft.com/dotnet/sdk:8.0.100-alpine3.18-amd64
+    else \
+        mcr.microsoft.com/dotnet/sdk:8.0.100-alpine3.18-arm64v8
+    fi
 WORKDIR /App
 COPY --from=build-env /App/out .
 ENTRYPOINT ["dotnet", "FalconsRoost.dll"]
