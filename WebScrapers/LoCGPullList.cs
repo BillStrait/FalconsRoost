@@ -7,6 +7,7 @@ using ScrapySharp.Html.Forms;
 using ScrapySharp.Network;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Policy;
@@ -70,8 +71,8 @@ namespace FalconsRoost.WebScrapers
             }
             if(total>0)
             {
-                embed.WithFooter($"Total: {total.ToString("C")}");
-                response.AppendLine($"\n\nTotal: {total.ToString("C")}");
+                embed.WithFooter($"Total: {total.ToString("C", CultureInfo.CurrentCulture)}");
+                response.AppendLine($"\n\nTotal: {total.ToString("C", CultureInfo.CurrentCulture)}");
             }
             else
             {
