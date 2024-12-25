@@ -64,15 +64,15 @@ namespace FalconsRoost.WebScrapers
                 var priceDecimal = decimal.Parse(System.Text.RegularExpressions.Regex.Match(price, @"(\d+\.\d+)").Value);
                 total += priceDecimal;
 
-                var mainText = $"[{title} - {publisher} - {priceDecimal.ToString("C")}]({link})";
-                embed.AddField(title, $"[{title} - {publisher} - {priceDecimal.ToString("C")}]({link})", false);
+                var mainText = $"[{title} - {publisher} - {priceDecimal.ToString("C", CultureInfo.GetCultureInfo("en-US"))}]({link})";
+                embed.AddField(title, $"[{title} - {publisher} - {priceDecimal.ToString("C", CultureInfo.GetCultureInfo("en-US"))}]({link})", false);
                 response.Append("\n* " + mainText);
 
             }
             if(total>0)
             {
-                embed.WithFooter($"Total: {total.ToString("C", CultureInfo.CurrentCulture)}");
-                response.AppendLine($"\n\nTotal: {total.ToString("C", CultureInfo.CurrentCulture)}");
+                embed.WithFooter($"Total: {total.ToString("C", CultureInfo.GetCultureInfo("en-US"))}");
+                response.AppendLine($"\n\nTotal: {total.ToString("C", CultureInfo.GetCultureInfo("en-US"))}");
             }
             else
             {
