@@ -38,16 +38,17 @@ namespace FalconsRoost.Bots
         }
 
         
-        [Command("draw"), Description("<prompt> - This asks Dall-E 2 to generate an image based on the prompt.")]
+        [Command("draw"), Description("<prompt> - This asks Dall-E 3 to generate an image based on the prompt.")]
         public async Task Draw(CommandContext ctx, [RemainingText] string prompt)
         {
             ImageCreateResponse response = await _ai.Image.CreateImage(new ImageCreateRequest
             {
                 Prompt = prompt,
-                N = 4,
+                N = 1,
                 Size = StaticValues.ImageStatics.Size.Size1024,
                 ResponseFormat = StaticValues.ImageStatics.ResponseFormat.Url,
-                User = ctx.User.Username
+                User = ctx.User.Username,
+                Model = Betalgo.Ranul.OpenAI.ObjectModels.Models.Dall_e_3
             });
 
             Console.WriteLine($"We're creating an image for {ctx.User.Username}. Their prompt was: {prompt}");
@@ -78,7 +79,17 @@ namespace FalconsRoost.Bots
             }
             else
             {
-                await BotError(ctx, response);
+                if(response.Error != null)
+                {
+                    if (response.Error?.Code?.Contains("content_policy_violation") ?? false)
+                    {
+                        await BotError(ctx, response, "Your request triggered a content policy violation. For shame.");
+                        return;
+                    }
+                }
+
+
+                await BotError(ctx, response, string.Empty);
                 return;   
             }
         }
@@ -108,7 +119,7 @@ namespace FalconsRoost.Bots
                 {
                     throw new Exception("Unknown Error");
                 }
-                await BotError(ctx, completionResult);
+                await BotError(ctx, completionResult, string.Empty);
             }
         }
 
@@ -134,7 +145,7 @@ namespace FalconsRoost.Bots
             }
             else
             {
-                await BotError(ctx, response);
+                await BotError(ctx, response, string.Empty);
             }
         }
 
@@ -158,11 +169,14 @@ namespace FalconsRoost.Bots
             return chatContext;
         }
 
-        private async Task BotError(CommandContext ctx, BaseResponse response)
+        private async Task BotError(CommandContext ctx, BaseResponse response, string customResponse)
         {
             Console.WriteLine(response);
             Console.WriteLine("Error type: " + response.Error?.Type ?? "unknown");
-            await ctx.RespondAsync("There was a problem working with OpenAI. Frequently this is because we have sent too many commands or the response would violate OpenAI's policy. Please wait a few minutes and try again. Contact my maker if this keeps happening.");
+            if (string.IsNullOrEmpty(customResponse))
+                await ctx.RespondAsync("There was a problem working with OpenAI. Frequently this is because we have sent too many commands or the response would violate OpenAI's policy. Please wait a few minutes and try again. Contact my maker if this keeps happening.");
+            else
+                await ctx.RespondAsync(customResponse);
         }
     }
 }
