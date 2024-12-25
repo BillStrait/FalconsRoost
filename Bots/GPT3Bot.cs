@@ -10,14 +10,14 @@ using DSharpPlus.EventArgs;
 using FalconsRoost.Helper;
 using FalconsRoost.Models;
 using Microsoft.Extensions.Configuration;
-using OpenAI;
-using OpenAI.Extensions;
-using OpenAI.Managers;
-using OpenAI.ObjectModels;
-using OpenAI.ObjectModels.RequestModels;
-using OpenAI.ObjectModels.ResponseModels;
-using OpenAI.ObjectModels.ResponseModels.ImageResponseModel;
-using OpenAI.ObjectModels.SharedModels;
+using Betalgo.Ranul.OpenAI;
+using Betalgo.Ranul.OpenAI.Extensions;
+using Betalgo.Ranul.OpenAI.Managers;
+using Betalgo.Ranul.OpenAI.ObjectModels;
+using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
+using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels;
+using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.ImageResponseModel;
+using Betalgo.Ranul.OpenAI.ObjectModels.SharedModels;
 
 namespace FalconsRoost.Bots
 {
@@ -29,76 +29,15 @@ namespace FalconsRoost.Bots
         public GPT3Bot(IConfigurationRoot config)
         {
             _config = config;
-            _ai = new OpenAIService(new OpenAiOptions
+            _ai = new OpenAIService(new OpenAIOptions()
             {
-                ApiKey = config.GetValue<string>("OpenAI")
+                ApiKey = config.GetValue<string>("OpenAI") ?? throw new System.Exception("OpenAI key not found.")
             });
+
             _chatContextManager = new ChatContextManager();
         }
 
-        [Command("edit"), Description("-i <instructions> -t <text> - This will attempt to edit the text using the instructions provided.")]
-        public async Task Edit(CommandContext ctx, [RemainingText] string prompt)
-        {
-            string[] strings = prompt.Split('-');
-            string input = string.Empty;
-            string command = string.Empty;
-            string[] array = strings;
-            foreach (string s in array)
-            {
-                if (s.ToLower().StartsWith("text "))
-                {
-                    input = s.Substring(5);
-                }
-                else if (s.ToLower().StartsWith("t "))
-                {
-                    input = s.Substring(2);
-                }
-                else if (s.ToLower().StartsWith("instructions "))
-                {
-                    command = s.Substring(13);
-                }
-                else if (s.ToLower().StartsWith("i "))
-                {
-                    command = s.Substring(2);
-                }
-            }
-            if (string.IsNullOrEmpty(input) || string.IsNullOrEmpty(command))
-            {
-                await ctx.RespondAsync("The edit command was not formatted correctly. We need to see '-i' followed by instructions and '-t' with the text.");
-                return;
-            }
-            EditCreateRequest request = new EditCreateRequest
-            {
-                Input = input,
-                Temperature = 0.5f,
-                Model = OpenAI.ObjectModels.Models.TextDavinciV3,
-                Instruction = command
-            };
-            Console.WriteLine(request);
-            EditCreateResponse response = await _ai.Edit.CreateEdit(request);
-            if (response.Successful)
-            {
-                if (response.Choices.Count > 1)
-                {
-                    StringBuilder sb = new StringBuilder();
-                    sb.AppendLine("We have multiple choices here. Yay.\n");
-                    for (int i = 0; i < response.Choices.Count; i++)
-                    {
-                        sb.AppendLine(i + 1 + response.Choices[i].Text);
-                    }
-                    await ctx.RespondAsync(sb.ToString());
-                }
-                else
-                {
-                    await ctx.RespondAsync(response.Choices[0].Text);
-                }
-            }
-            else
-            {
-                await BotError(ctx, response);
-            }
-        }
-
+        
         [Command("draw"), Description("<prompt> - This asks Dall-E 2 to generate an image based on the prompt.")]
         public async Task Draw(CommandContext ctx, [RemainingText] string prompt)
         {
@@ -143,31 +82,7 @@ namespace FalconsRoost.Bots
             }
         }
 
-        [Command("write"), Description("<sentence fragment> - currently this command attempts to complete a sentence.")]
-        public async Task Completion(CommandContext ctx, [RemainingText] string prompt)
-        {
-            CompletionCreateResponse response = await _ai.Completions.CreateCompletion(new CompletionCreateRequest
-            {
-                Prompt = prompt,
-                Model = OpenAI.ObjectModels.Models.Gpt_3_5_Turbo_Instruct
-            });
-            Console.WriteLine(response);
-            if (response.Successful)
-            {
-                Console.WriteLine($"These are the {response.Choices.Count()} choices I got back... ");
-
-                foreach (ChoiceResponse choice in response.Choices)
-                {
-                    Console.WriteLine(choice);
-                }
-                await ctx.RespondAsync(response.Choices[0].Text);
-            }
-            else
-            {
-                await BotError(ctx, response);
-            }
-        }
-
+        
         [Command("chat"), Description("<prompt> - This will ask ChatGPT to respond based on your current context. Context resets after 1 hour of inactivity.")]
         public async Task Chat(CommandContext ctx, [RemainingText] string prompt)
         {
@@ -178,7 +93,7 @@ namespace FalconsRoost.Bots
             ChatCompletionCreateResponse completionResult = await _ai.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
             {
                 Messages = chatContext.Messages,
-                Model = OpenAI.ObjectModels.Models.Gpt_4
+                Model = Betalgo.Ranul.OpenAI.ObjectModels.Models.Gpt_4o
             });
             if (completionResult.Successful)
             {
@@ -201,7 +116,7 @@ namespace FalconsRoost.Bots
         {
             var response = await _ai.ChatCompletion.CreateCompletion(new ChatCompletionCreateRequest
             {
-                Model = OpenAI.ObjectModels.Models.Gpt_4,
+                Model = Betalgo.Ranul.OpenAI.ObjectModels.Models.Gpt_4o,
                 Messages = new List<ChatMessage>
                 {
                     ChatMessage.FromUser($"Please return a grounded response. I want details on {Prompt}. If they are a fictional person, include who created them and when. If they are a comic character, include their first appearance. If they are a company, tell me their revenue and primary leadership.")
