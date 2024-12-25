@@ -22,7 +22,7 @@ namespace FalconsRoost
     {
         private static GPT3Bot bot;
 
-        private static string versionNumber = "0.0.0.6";
+        private static string versionNumber = "0.0.0.7";
 
         private static IConfigurationRoot _config;
         private static bool _trace = false;
@@ -142,7 +142,8 @@ namespace FalconsRoost
             var commands = discord.UseCommandsNext(new CommandsNextConfiguration()
             {
                 Services = services,
-                StringPrefixes = new[] { "!" }
+                StringPrefixes = new[] { "!" },
+                
             });
 
             commands.RegisterCommands<BaseBot>();

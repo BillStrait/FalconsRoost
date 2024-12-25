@@ -1,7 +1,9 @@
 ﻿using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using FalconsRoost.Models;
+using FalconsRoost.WebScrapers;
 using Microsoft.Extensions.Configuration;
+using Org.BouncyCastle.Bcpg.OpenPgp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,5 +40,11 @@ namespace FalconsRoost.Bots
             await ctx.RespondAsync(battle.QuickBattle());
         }
 
+        [Command("pulllist"), Description("Retrieve the pull list from League of Comic Geeks for the specified user.")]
+        public async Task PullListCommand(CommandContext ctx, [RemainingText] string userName)
+        {
+            var scraper = new LoCGPullList();
+            var response = scraper.GetPullList(ctx, userName);
+        }
     }
 }

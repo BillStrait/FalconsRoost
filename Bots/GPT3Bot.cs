@@ -7,6 +7,7 @@ using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using FalconsRoost.Helper;
 using FalconsRoost.Models;
 using Microsoft.Extensions.Configuration;
 using OpenAI;
@@ -183,7 +184,7 @@ namespace FalconsRoost.Bots
             {
                 string response = completionResult.Choices?.First()?.Message?.Content ?? "There was an error.";
                 chatContext.Messages.Add(ChatMessage.FromAssistant(response));
-                await SendPotentallyLongResponse(response, ctx);
+                await BotMessageHandler.SendPotentallyLongResponse(response, ctx);
             }
             else
             {
@@ -213,7 +214,7 @@ namespace FalconsRoost.Bots
                 var context = GetChatContext(ctx);
                 var responseMessage = response.Choices?.First()?.Message?.Content ?? "There was an error.";
                 context.Messages.Add(ChatMessage.FromAssistant(responseMessage));
-                SendPotentallyLongResponse(responseMessage, ctx);
+                await BotMessageHandler.SendPotentallyLongResponse(responseMessage, ctx);
             }
             else
             {
@@ -221,39 +222,7 @@ namespace FalconsRoost.Bots
             }
         }
 
-        private async Task SendPotentallyLongResponse(string response, CommandContext ctx)
-        {
-            if (response.Length > 2000)
-            {
-                string[] sentences = response.Split('.');
-                string smallerResponse = "";
-                List<string> smallerResponses = new List<string>();
-                string[] array = sentences;
-                foreach (string sentence in array)
-                {
-                    if (smallerResponse.Length + sentence.Length <= 2000)
-                    {
-                        smallerResponse = smallerResponse + " " + sentence;
-                        continue;
-                    }
-                    if (sentence.Length <= 2000)
-                    {
-                        await ctx.RespondAsync("I'm sorry, part of this response is just too long to send over discord. Try asking for something simplier.");
-                        break;
-                    }
-                    smallerResponses.Add(smallerResponse);
-                    smallerResponse = sentence;
-                }
-                foreach (string sResponse in smallerResponses)
-                {
-                    await ctx.RespondAsync(sResponse);
-                }
-            }
-            else
-            {
-                await ctx.RespondAsync(response);
-            }
-        }
+        
 
 
         private ChatContext GetChatContext(CommandContext ctx)
