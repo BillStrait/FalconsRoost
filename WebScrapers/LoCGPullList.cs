@@ -42,7 +42,25 @@ namespace FalconsRoost.WebScrapers
             var pullListPage = GetHtml(target);
             //there is a ul with id "comic-list-issues" - inside of that ul are the comics.
             var comicNodes = pullListPage.SelectNodes("//ul[@id='comic-list-issues']//li");
+
+            //if there are no comicNodes, we should try to find the first ul that has the class 'comic-list-thumbs' - this is the old layout.
+            if (comicNodes == null || comicNodes.Count == 0)
+            {
+                comicNodes = pullListPage.SelectNodes("//ul[contains(@class, 'comic-list-thumbs')]//li");
+            }
+
+
             decimal total = 0;
+            //if we still have no comicNodes, we should just return.
+            if (comicNodes == null || comicNodes.Count == 0)
+            {
+                embed.WithFooter("No comics found.");
+                response.AppendLine("\n\nNo comics found.");
+                await ctx.RespondAsync(embed: embed.Build());
+                return;
+            }
+
+            //we have comics, let's loop through them.
             foreach (var node in comicNodes)
             {
                 //there is a div called 'cover' - inside it is an a tag, with an img tag inside. We want the src of the img tag, without any arguments.
@@ -68,6 +86,15 @@ namespace FalconsRoost.WebScrapers
                 embed.AddField(title, $"[{title} - {publisher} - {priceDecimal.ToString("C", CultureInfo.GetCultureInfo("en-US"))}]({link})", false);
                 response.Append("\n* " + mainText);
 
+                if(embed.Fields.Count == 25 && comicNodes.Count > 25)
+                {
+                    await ctx.RespondAsync(embed);
+                    embed = new DiscordEmbedBuilder
+                    {
+                        Title = $"Continued Pull List for {userName}",
+                        Color = DiscordColor.PhthaloGreen
+                    };
+                }
             }
             if(total>0)
             {
@@ -80,7 +107,7 @@ namespace FalconsRoost.WebScrapers
                 response.AppendLine("\n\nNo comics found.");
             }
 
-            //response can be used if we don't have embeds for some reason.
+            //We can't send more than 25 embed fields.
             await ctx.RespondAsync(embed: embed.Build());
         }
 
