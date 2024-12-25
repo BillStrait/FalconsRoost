@@ -79,6 +79,7 @@ namespace FalconsRoost.Bots
             else
             {
                 await BotError(ctx, response);
+                return;   
             }
         }
 
@@ -160,7 +161,8 @@ namespace FalconsRoost.Bots
         private async Task BotError(CommandContext ctx, BaseResponse response)
         {
             Console.WriteLine(response);
-            await ctx.RespondAsync("There was a problem working with OpenAI. Please contact my maker if this keeps happening.");
+            Console.WriteLine("Error type: " + response.Error?.Type ?? "unknown");
+            await ctx.RespondAsync("There was a problem working with OpenAI. Frequently this is because we have sent too many commands or the response would violate OpenAI's policy. Please wait a few minutes and try again. Contact my maker if this keeps happening.");
         }
     }
 }
