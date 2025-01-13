@@ -72,7 +72,7 @@ namespace FalconsRoost.Models
             Story += " - and they faught.\n";
             while (Player.HitPoints > 0 && Monsters.Count > 0)
             {
-                AttackDescription res = Player.EquippedWeapon.AttackRole(Player, Monsters[0]);
+                AttackDescription res = Player.Weapons[0].AttackRole(Player, Monsters[0]);
                 Story += res.Description;
                 if (res.Lethal)
                 {
@@ -82,7 +82,7 @@ namespace FalconsRoost.Models
                 {
                     if (Player.HitPoints > 0)
                     {
-                        res = monster.EquippedWeapon.AttackRole(monster, Player);
+                        res = monster.Weapons[0].AttackRole(monster, Player);
                         Story += res.Description;
                     }
                 }

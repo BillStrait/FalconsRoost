@@ -18,15 +18,16 @@ using Betalgo.Ranul.OpenAI.ObjectModels.RequestModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels;
 using Betalgo.Ranul.OpenAI.ObjectModels.ResponseModels.ImageResponseModel;
 using Betalgo.Ranul.OpenAI.ObjectModels.SharedModels;
+using FalconsRoost.Models.db;
 
 namespace FalconsRoost.Bots
 {
-    public class GPT3Bot : BaseCommandModule
+    public class GPT3Bot : ExtendedCommandModule //ExtendedCommandModule handles DB Interactions.
     {
         private OpenAIService _ai;
         private ChatContextManager _chatContextManager;
         private IConfigurationRoot _config;
-        public GPT3Bot(IConfigurationRoot config)
+        public GPT3Bot(IConfigurationRoot config, FalconsRoostDBContext? context) : base(context)
         {
             _config = config;
             _ai = new OpenAIService(new OpenAIOptions()
@@ -74,7 +75,7 @@ namespace FalconsRoost.Bots
                     }
                 }
                 builder.AddFiles(files);
-                builder.Content = "These are the results we got back from OpenAI's Dall-E 2:";
+                builder.Content = "Here is the result we got back from OpenAI's Dall-E 3:";
                 await ctx.RespondAsync(builder);
             }
             else

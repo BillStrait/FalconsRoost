@@ -15,7 +15,7 @@
             base.HighHP = 8;
             base.ExpValue = 10;
             SetGoldAndHP();
-            Weapon standardWeapon = (base.EquippedWeapon = new Weapon("Dagger", "a worn rusty dagger", 1, 4, 0, 1, 5));
+            Weapon standardWeapon = new Weapon("Dagger", "a worn rusty dagger", 1, 4, 0, 1, 5);
             base.Weapons.Add(standardWeapon);
         }
     }

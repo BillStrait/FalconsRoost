@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using FalconsRoost.Models;
@@ -8,6 +9,7 @@ namespace FalconsRoost.Models
 {
     public class Weapon
     {
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string Name { get; set; } = "Fists";
         public string ActionTextName { get; set; } = "the weapons they were born with";
         public int DiceSize { get; set; } = 2;
@@ -15,7 +17,10 @@ namespace FalconsRoost.Models
         public int DamageBonus { get; set; } = 0;
         public int SellValue { get; set; } = 0;
         public int BuyValue { get; set; } = 0;
-
+        
+        public Guid? OwnerId { get; set; }
+        [ForeignKey("OwnerId")]
+        public Stats? Owner { get; set; }
         public Weapon()
         {
         }

@@ -11,21 +11,25 @@ using DSharpPlus.EventArgs;
 using FalconsRoost;
 using FalconsRoost.Bots;
 using FalconsRoost.Models;
+using FalconsRoost.Models.db;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MySql.EntityFrameworkCore.Extensions;
 
 namespace FalconsRoost
 {
 
 
-    internal class Program
+    internal class Program : IDesignTimeDbContextFactory<FalconsRoostDBContext>
     {
-        private static GPT3Bot bot;
-
-        private static string versionNumber = "0.0.0.7";
+        
+        private static string versionNumber = "0.0.0.8";
 
         private static IConfigurationRoot _config;
         private static bool _trace = false;
+        private static bool dbEnabled = false;
 
         private static void Main(string[] args)
         {
@@ -42,7 +46,7 @@ namespace FalconsRoost
             {
                 SecretConfigSetUp();
             }
-            bot = new GPT3Bot(_config);
+
             MainAsync().GetAwaiter().GetResult();
         }
 
@@ -69,6 +73,7 @@ namespace FalconsRoost
                 if (args[i].ToLower().StartsWith("sqlpassword="))
                 {
                     sqlP = args[i].Substring("sqlpassword=".Length);
+                    dbEnabled = true;
                 }
             }
             if (!string.IsNullOrEmpty(dt) && !string.IsNullOrEmpty(oa))
@@ -84,12 +89,10 @@ namespace FalconsRoost
                         {
                                 new KeyValuePair<string, string?>("DiscordToken", dt),
                                 new KeyValuePair<string, string?>("OpenAI", oa),
-                                new KeyValuePair<string, string?>("FRDBConnection", $"server=mysql; database=falconsroostdb; user=root; password={sqlP}"),
+                                new KeyValuePair<string, string?>("sqlpassword", sqlP),
                                 new KeyValuePair<string, string?>("versionNumber", versionNumber),
-                                new KeyValuePair<string, string?>("Trace", _trace.ToString())
-{
-
-                                }
+                                new KeyValuePair<string, string?>("Trace", _trace.ToString()),
+                                new KeyValuePair<string, string?>("connectionString", $"server=localhost;port=3306;database=falconsroostdb;user=root;password={sqlP??string.Empty};")
                         }
                     )
                     .Build();
@@ -117,6 +120,8 @@ namespace FalconsRoost
                         }
                     )
                 .Build();
+
+            dbEnabled = !string.IsNullOrWhiteSpace(_config.GetValue<string>("connectionString"));
         }
 
         private static async Task MainAsync()
@@ -128,10 +133,18 @@ namespace FalconsRoost
                 Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents),
 
             });
+            var connectionString = _config.GetValue<string>("connectionString");
 
-            ServiceProvider services = new ServiceCollection()
-                .AddSingleton<IConfigurationRoot>(_config)
-                .BuildServiceProvider();
+             var serviceCollection = new ServiceCollection()
+                .AddSingleton<IConfigurationRoot>(_config);
+
+            if (dbEnabled)
+            {
+                serviceCollection.AddDbContext<FalconsRoostDBContext>(options => options.UseMySQL(connectionString ?? throw new ArgumentException("We could not find an sqlpassword or a connectionString during startup.")).EnableSensitiveDataLogging().EnableDetailedErrors());
+            }
+                
+
+            ServiceProvider services = serviceCollection.BuildServiceProvider();
 
             Console.WriteLine("I've started up.");
             discord.MessageCreated += async delegate (DiscordClient s, MessageCreateEventArgs e)
@@ -142,17 +155,59 @@ namespace FalconsRoost
             var commands = discord.UseCommandsNext(new CommandsNextConfiguration()
             {
                 Services = services,
-                StringPrefixes = new[] { "!" },
-                
+                StringPrefixes = new[] { "!" },                
             });
 
             commands.RegisterCommands<BaseBot>();
             commands.RegisterCommands<GPT3Bot>();
+            commands.RegisterCommands<ComicBot>();
 
             await discord.ConnectAsync();
+
+            var db = services.GetRequiredService<FalconsRoostDBContext>();
+
+            if (db == null)
+            {
+                Console.WriteLine("I couldn't connect to the database.");
+                return;
+            }
+
+            await db.Database.MigrateAsync();
+
+            var log = new LaunchLog();
+            log.Message = "I've started up.";
+            log.Version = versionNumber;
+            db.LaunchLogs.Add(log);
+            await db.SaveChangesAsync();
+
+
             await Task.Delay(-1);
         }
 
+        public FalconsRoostDBContext CreateDbContext(string[] args)
+        {
+            if (args.Any((string c) => c.ToLower().StartsWith("dt=")) && args.Any((string c) => c.ToLower().StartsWith("oa=")))
+            {
+                MemoryConfigSetUp(args);
+            }
+            else
+            {
+                SecretConfigSetUp();
+            }
 
+            
+
+            var configurationBuilder = new ConfigurationBuilder()
+              .SetBasePath(Directory.GetCurrentDirectory())
+              .AddConfiguration(_config);
+            var connectionString = _config.GetValue<string>("connectionString") ?? string.Empty;
+            IConfigurationRoot configuration = configurationBuilder.Build();
+            DbContextOptionsBuilder<FalconsRoostDBContext> optionsBuilder = new DbContextOptionsBuilder<FalconsRoostDBContext>()
+                .UseMySQL(connectionString);
+
+            return new FalconsRoostDBContext(optionsBuilder.Options);
+
+
+        }
     }
 }

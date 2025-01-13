@@ -21,7 +21,7 @@ namespace FalconsRoost.Models
             base.HighHP = 3;
             base.ExpValue = 1;
             SetGoldAndHP();
-            Weapon standardWeapon = (base.EquippedWeapon = new Weapon("Teeth", "slavia frothed teeth", 1, 4, 0, 0, 0));
+            Weapon standardWeapon = new Weapon("Teeth", "slavia frothed teeth", 1, 4, 0, 0, 0);
             base.Weapons.Add(standardWeapon);
         }
     }

@@ -16,19 +16,18 @@ using System.Threading.Tasks;
 
 namespace FalconsRoost.WebScrapers
 {
-    public class LoCGPullList
+    public class LeagueOfComicGeeksScraper
     {
         ScrapingBrowser _browser = new ScrapingBrowser();
 
-        public LoCGPullList()
+        public LeagueOfComicGeeksScraper()
         {
 
         }
 
-        public async Task GetPullList(CommandContext ctx, string userName)
+        public List<DiscordEmbedBuilder> GetPullList(CommandContext ctx, string userName)
         {
-            var response = new StringBuilder();
-            response.AppendLine($"Here is the pull list for {userName}:\n");
+            var embeds = new List<DiscordEmbedBuilder>();
 
             var embed = new DiscordEmbedBuilder
             {
@@ -49,15 +48,12 @@ namespace FalconsRoost.WebScrapers
                 comicNodes = pullListPage.SelectNodes("//ul[contains(@class, 'comic-list-thumbs')]//li");
             }
 
-
             decimal total = 0;
             //if we still have no comicNodes, we should just return.
             if (comicNodes == null || comicNodes.Count == 0)
             {
                 embed.WithFooter("No comics found.");
-                response.AppendLine("\n\nNo comics found.");
-                await ctx.RespondAsync(embed: embed.Build());
-                return;
+                return new List<DiscordEmbedBuilder> { embed };
             }
 
             //we have comics, let's loop through them.
@@ -84,11 +80,10 @@ namespace FalconsRoost.WebScrapers
 
                 var mainText = $"[{title} - {publisher} - {priceDecimal.ToString("C", CultureInfo.GetCultureInfo("en-US"))}]({link})";
                 embed.AddField(title, $"[{title} - {publisher} - {priceDecimal.ToString("C", CultureInfo.GetCultureInfo("en-US"))}]({link})", false);
-                response.Append("\n* " + mainText);
-
+                
                 if(embed.Fields.Count == 25 && comicNodes.Count > 25)
                 {
-                    await ctx.RespondAsync(embed);
+                    embeds.Add(embed);
                     embed = new DiscordEmbedBuilder
                     {
                         Title = $"Continued Pull List for {userName}",
@@ -99,25 +94,64 @@ namespace FalconsRoost.WebScrapers
             if(total>0)
             {
                 embed.WithFooter($"Total: {total.ToString("C", CultureInfo.GetCultureInfo("en-US"))}");
-                response.AppendLine($"\n\nTotal: {total.ToString("C", CultureInfo.GetCultureInfo("en-US"))}");
             }
             else
             {
                 embed.WithFooter("No comics found.");
-                response.AppendLine("\n\nNo comics found.");
             }
 
             //We can't send more than 25 embed fields.
-            await ctx.RespondAsync(embed: embed.Build());
+            embeds.Add(embed);
+            return embeds;
+        }
+
+        public async Task<string> ComicToBookClub(CommandContext ctx, string url)
+        {
+            //this method needs to verify the url accurately pulls a comic book from league of comic geeks.
+            //if it does, we should get the title, the isbn, the distributor sku, the channel, the server, and the user and save it to the database.
+            HtmlNode html = null;
+            try
+            {
+                html = GetHtml(url);
+            }
+            catch (Exception ex)
+            {
+                return "There was an error getting the page. It must be in a similar format to: https://leagueofcomicgeeks.com/comic/5959203/something-is-killing-the-children-vol-1-tp";
+            }
+
+            //lets grab the title from the h1 tag.
+            var title = html.SelectSingleNode("//h1")?.InnerText ?? "Unknown Title";
+
+            //select divs with the class 'details-addtl-block'
+            var details = html.SelectNodes("//div[contains(@class, 'details-addtl-block')]");
+            //In each details div there is a 'name' div and a 'value' div. If the details name div contains 'ISBN' we save the value to isbn.
+            var isbn = details.FirstOrDefault(x => x.SelectSingleNode(".//div[contains(@class, 'name')]").InnerText.Contains("ISBN", StringComparison.OrdinalIgnoreCase))?.SelectSingleNode(".//div[contains(@class, 'value')]")?.InnerText ?? "Unknown ISBN";
+            //If the details name div contains 'Distributor SKU' we save the value to distributorSku.
+            var distributorSku = details.FirstOrDefault(x => x.SelectSingleNode(".//div[contains(@class, 'name')]").InnerText.Contains("Distributor SKU", StringComparison.OrdinalIgnoreCase))?.SelectSingleNode(".//div[contains(@class, 'value')]")?.InnerText ?? "Unknown Distributor SKU";
+
+            //we also want to pull the canonical link from the head.
+            var canonicalLink = html.SelectSingleNode("//link[@rel='canonical']")?.Attributes["href"]?.Value ?? url;
+
+            return "Your comic has been added to the book club's next vote.";
         }
 
         private HtmlNode GetHtml(string url)
         {
             _browser.Timeout = TimeSpan.FromMinutes(5);
             _browser.Headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-            var pageResult = _browser.NavigateToPage(new Uri(url));
-            //lets respect our server, sleep so we don't call more than 5 times a second.
-            Thread.Sleep(200);
+            WebPage pageResult = null;
+            try
+            {
+                pageResult = _browser.NavigateToPage(new Uri(url));
+                //lets respect our server, sleep so we don't call more than 5 times a second.
+                Thread.Sleep(200);
+            }
+            catch(Exception ex)
+            {
+                throw new Exception("There was an error getting the page.", ex);
+            }
+
+
             return pageResult.Html;
         }
     }
