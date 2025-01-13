@@ -60,6 +60,7 @@ namespace FalconsRoost
             string dt = string.Empty;
             string oa = string.Empty;
             string sqlP = string.Empty;
+            string sqlS = string.Empty;
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i].ToLower().StartsWith("dt="))
@@ -74,6 +75,10 @@ namespace FalconsRoost
                 {
                     sqlP = args[i].Substring("sqlpassword=".Length);
                     dbEnabled = true;
+                }
+                if (args[i].ToLower().StartsWith("sqlserver="))
+                {
+                    sqlS = args[i].Substring("sqlserver=".Length);
                 }
             }
             if (!string.IsNullOrEmpty(dt) && !string.IsNullOrEmpty(oa))
@@ -92,7 +97,7 @@ namespace FalconsRoost
                                 new KeyValuePair<string, string?>("sqlpassword", sqlP),
                                 new KeyValuePair<string, string?>("versionNumber", versionNumber),
                                 new KeyValuePair<string, string?>("Trace", _trace.ToString()),
-                                new KeyValuePair<string, string?>("connectionString", $"server=localhost;port=3306;database=falconsroostdb;user=root;password={sqlP??string.Empty};")
+                                new KeyValuePair<string, string?>("connectionString", $"server={sqlS ?? "mysql"};port=3306;database=falconsroostdb;user=root;password={sqlP??string.Empty};")
                         }
                     )
                     .Build();
