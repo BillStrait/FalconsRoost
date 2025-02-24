@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using FalconsRoost.Models.Alerts;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using MySql.EntityFrameworkCore.Infrastructure;
 using System;
@@ -12,11 +13,12 @@ namespace FalconsRoost.Models.db
 {
     public class FalconsRoostDBContext : DbContext
     {
-        public DbSet<LaunchLog> LaunchLogs { get; set; } = null!;
+        public DbSet<SimpleLogEntry> LaunchLogs { get; set; } = null!;
         public DbSet<ChatMessageLog> ChatMessageLogs { get; set; } = null!; 
         public DbSet<Player> Players { get; set; } = null!;
         public DbSet<Weapon> Weapons { get; set; } = null!;
-
+        public DbSet<AlertMessage> AlertMessages { get; set; } = null!;
+        public DbSet<AlertTask> AlertTasks { get; set; } = null!;
 
         public FalconsRoostDBContext(DbContextOptions<FalconsRoostDBContext> options)
         : base(options)
@@ -26,7 +28,7 @@ namespace FalconsRoost.Models.db
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             //use the modelBuilder to create the table
-            modelBuilder.Entity<LaunchLog>(entity =>
+            modelBuilder.Entity<SimpleLogEntry>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Version).IsRequired();

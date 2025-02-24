@@ -1,6 +1,7 @@
 ﻿using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Configuration;
 using ScrapySharp;
 using ScrapySharp.Core;
 using ScrapySharp.Html.Forms;
@@ -16,13 +17,10 @@ using System.Threading.Tasks;
 
 namespace FalconsRoost.WebScrapers
 {
-    public class LeagueOfComicGeeksScraper
+    public class LeagueOfComicGeeksScraper : BaseScraper
     {
-        ScrapingBrowser _browser = new ScrapingBrowser();
-
-        public LeagueOfComicGeeksScraper()
+        public LeagueOfComicGeeksScraper(IConfiguration config) : base(config)
         {
-
         }
 
         public List<DiscordEmbedBuilder> GetPullList(CommandContext ctx, string userName)
@@ -135,24 +133,6 @@ namespace FalconsRoost.WebScrapers
             return "Your comic has been added to the book club's next vote.";
         }
 
-        private HtmlNode GetHtml(string url)
-        {
-            _browser.Timeout = TimeSpan.FromMinutes(5);
-            _browser.Headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-            WebPage pageResult = null;
-            try
-            {
-                pageResult = _browser.NavigateToPage(new Uri(url));
-                //lets respect our server, sleep so we don't call more than 5 times a second.
-                Thread.Sleep(200);
-            }
-            catch(Exception ex)
-            {
-                throw new Exception("There was an error getting the page.", ex);
-            }
 
-
-            return pageResult.Html;
-        }
     }
 }

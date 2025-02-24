@@ -3,6 +3,7 @@ using System;
 using FalconsRoost.Models.db;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FalconsRoost.Models.DB.Migrations
 {
     [DbContext(typeof(FalconsRoostDBContext))]
-    partial class FalconsRoostDBContextModelSnapshot : ModelSnapshot
+    [Migration("20250224025622_Alerts-CurrentlyRunning")]
+    partial class AlertsCurrentlyRunning
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

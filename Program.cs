@@ -11,7 +11,9 @@ using DSharpPlus.EventArgs;
 using FalconsRoost;
 using FalconsRoost.Bots;
 using FalconsRoost.Models;
+using FalconsRoost.Models.Alerts;
 using FalconsRoost.Models.db;
+using FalconsRoost.WebScrapers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
@@ -24,12 +26,14 @@ namespace FalconsRoost
 
     internal class Program : IDesignTimeDbContextFactory<FalconsRoostDBContext>
     {
-        
+
         private static string versionNumber = "0.0.0.8";
 
         private static IConfigurationRoot _config;
         private static bool _trace = false;
         private static bool dbEnabled = false;
+        private static DiscordClient discord;
+        private static FalconsRoostDBContext? db;
 
         private static void Main(string[] args)
         {
@@ -127,7 +131,7 @@ namespace FalconsRoost
 
         private static async Task MainAsync()
         {
-            DiscordClient discord = new DiscordClient(new DiscordConfiguration
+            discord = new DiscordClient(new DiscordConfiguration
             {
                 Token = _config.GetValue<string>("DiscordToken"),
                 TokenType = TokenType.Bot,
@@ -139,19 +143,34 @@ namespace FalconsRoost
              var serviceCollection = new ServiceCollection()
                 .AddSingleton<IConfigurationRoot>(_config);
 
+
+            
             if (dbEnabled)
             {
                 serviceCollection.AddDbContext<FalconsRoostDBContext>(options => options.UseMySQL(connectionString ?? throw new ArgumentException("We could not find an sqlpassword or a connectionString during startup.")).EnableSensitiveDataLogging().EnableDetailedErrors());
-            }
+
                 
 
-            ServiceProvider services = serviceCollection.BuildServiceProvider();
+            }
+
+            
 
             Console.WriteLine("I've started up.");
             discord.MessageCreated += async delegate (DiscordClient s, MessageCreateEventArgs e)
             {
                 Console.WriteLine("I've caught a message. It says " + e.Message);
             };
+
+            ServiceProvider services = serviceCollection.BuildServiceProvider();
+            db = services.GetRequiredService<FalconsRoostDBContext>();
+
+            if (db == null)
+            {
+                Console.WriteLine("I couldn't connect to the database.");
+                return;
+            }
+
+            await db.Database.MigrateAsync();
 
             var commands = discord.UseCommandsNext(new CommandsNextConfiguration()
             {
@@ -163,23 +182,27 @@ namespace FalconsRoost
             commands.RegisterCommands<GPT3Bot>();
             commands.RegisterCommands<ComicBot>();
 
+            
+
             await discord.ConnectAsync();
 
-            var db = services.GetRequiredService<FalconsRoostDBContext>();
+            
 
-            if (db == null)
-            {
-                Console.WriteLine("I couldn't connect to the database.");
-                return;
-            }
-
-            await db.Database.MigrateAsync();
-
-            var log = new LaunchLog();
+            var log = new SimpleLogEntry();
             log.Message = "I've started up.";
             log.Version = versionNumber;
-            db.LaunchLogs.Add(log);
-            await db.SaveChangesAsync();
+            if (dbEnabled)
+            {
+                db.LaunchLogs.Add(log);
+                await db.SaveChangesAsync();
+            }
+            
+
+            //execute RunScheduledTasks every minute.
+            var timer = new System.Timers.Timer(60000);
+            timer.Elapsed += async (sender, e) => await RunScheduledTasks();
+            timer.Start();
+
 
 
             await Task.Delay(-1);
@@ -209,6 +232,50 @@ namespace FalconsRoost
             return new FalconsRoostDBContext(optionsBuilder.Options);
 
 
+        }
+
+        /// <summary>
+        /// This method checks for tasks that need to fire on a regular basis.
+        /// It should be called from the MainAsync method using a timer.
+        /// </summary>
+        public static async Task RunScheduledTasks()
+        {
+            if (!dbEnabled)
+                return;
+            
+            var tasks = db.AlertTasks.Where(t => t.Enabled && t.NextRun < DateTime.Now).ToList();
+            if(!tasks.Any())
+                return;
+
+            foreach (var task in tasks)
+            {
+                //we need to run the task.
+                switch (task.AlertType)
+                {
+                    case AlertType.MCSNCBD:
+                        if(task.CurrentlyRunning)
+                            break;
+                        //mark the task as running.
+                        task.CurrentlyRunning = true;
+                        db.Update(task);
+                        var mcsNCBDScraper = new MyComicShopScraper(_config);
+                        var result = await mcsNCBDScraper.NCBDCheck(task);
+                        task.CurrentlyRunning = false;
+                        db.Update(task);
+                        break;
+                    case AlertType.MCSRatio:
+                        var mscRatioScraper = new MyComicShopScraper(_config);
+                        break;
+                    default:
+                        var simpleLog = new SimpleLogEntry();
+                        simpleLog.Message = $"I don't know what to do with this task. It's AlertType is {task.AlertType}";
+                        db.LaunchLogs.Add(simpleLog);
+                        break;
+                }
+                task.LastRun = DateTime.Now;
+                db.AlertTasks.Update(task);
+            }
+            await db.SaveChangesAsync();
         }
     }
 }

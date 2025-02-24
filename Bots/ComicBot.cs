@@ -9,6 +9,10 @@ using System.Threading.Tasks;
 using FalconsRoost.Models.db;
 using Microsoft.Extensions.Configuration;
 using System.Text.RegularExpressions;
+using FalconsRoost.Models;
+using DSharpPlus;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using FalconsRoost.Models.Alerts;
 
 namespace FalconsRoost.Bots
 {
@@ -77,17 +81,17 @@ namespace FalconsRoost.Bots
                 else
                 {
                     var errorMessage = "You need to provide a username or use the LoCGRegister command.";
-                    LogResponse(ctx, errorMessage);
+                    await LogResponse(ctx, errorMessage);
                     await ctx.RespondAsync(errorMessage);
                     return;
                 }
             }
-            var scraper = new LeagueOfComicGeeksScraper();
+            var scraper = new LeagueOfComicGeeksScraper(_config);
             var embeds = scraper.GetPullList(ctx, userName);
 
             foreach (var embed in embeds)
             {
-                LogResponse(ctx, embed.Title);
+                await LogResponse(ctx, embed.Title);
                 await ctx.RespondAsync(embed: embed);
             }
         }
@@ -101,16 +105,39 @@ namespace FalconsRoost.Bots
             if (string.IsNullOrWhiteSpace(userName) || userName.Any(c => !char.IsLetterOrDigit(c) || c == '_'))
             {
                 response = "You need to provide a valid username.";
-                LogResponse(ctx, response);
+                await LogResponse(ctx, response);
                 await ctx.RespondAsync(response);
                 return;
             }
             player.LeagueOfComicGeeksName = userName;
             await SavePlayer(player);
             response = $"Your League of Comic Geeks username has been set to {userName}.";
-            LogResponse(ctx, response);
+            await LogResponse(ctx, response);
             await ctx.RespondAsync(response);
 
+        }
+
+        [Command("rmcsalert"), Description("Registers a channel to get notifications when MCS new releases are posted.")]
+        public async Task RegisterAlertCommand(CommandContext ctx)
+        {
+            //We only want the admin to be able to set this up.
+            var adminId = _config.GetValue<ulong>("DiscordAdminId");
+            if (ctx.User.Id != adminId)
+            {
+                await ctx.RespondAsync("You do not have permission to use this command.");
+                return;
+            }
+            var alert = new AlertMessage()
+            {
+                ChannelId = ctx.Channel.Id,
+                AlertTarget = "here",
+                Message = "New releases have been posted on [MyComicShop](https://www.mycomicshop.com). Check them out!"
+            };
+
+            _dbContext!.AlertMessages.Add(alert);
+            await _dbContext.SaveChangesAsync();
+
+            await ctx.RespondAsync("This channel will now receive alerts when new releases are posted on MyComicShop.");
         }
     }
 }

@@ -1,0 +1,83 @@
+﻿using FalconsRoost.Models.Alerts;
+using Microsoft.Extensions.Configuration;
+using Org.BouncyCastle.Tls;
+using ScrapySharp.Network;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace FalconsRoost.WebScrapers
+{
+    public class MyComicShopScraper : BaseScraper
+    {
+        private readonly TimeZoneInfo centralTimeZone;
+        public MyComicShopScraper(IConfiguration config) : base(config)
+        {
+            centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Central Standard Time" : "America/Chicago");
+        }
+
+        public async Task<bool> NCBDCheck(AlertTask task)
+        {
+            //for testing we're going to set the hours to 20 and 21.
+            task.HourStartTime = 20;
+            task.HourEndTime = 21;
+
+            var updated = false;
+            var keepGoing = true;
+            while (keepGoing)
+            {
+                var target = "https://www.mycomicshop.com/newreleases?dw=-1";
+                var page = GetHtml(target);
+
+                var comicsList = page.SelectNodes("//div[@class='addcart']//a");
+                updated = comicsList?.Any() ?? false;
+
+                
+                var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, centralTimeZone);
+
+                if (updated || task.RunOnce || task.HourEndTime <= centralTime.Hour)
+                {
+                    keepGoing = false;
+                }
+                else
+                {
+                    //we want to sleep between 5 and 72 seconds.
+                    var sleepTime = new Random().Next(5000, 72000);
+                    Thread.Sleep(sleepTime);
+                }
+            }
+
+            if (updated)
+            {
+                foreach (var message in task.AlertMessages)
+                {
+                    if (message != null)
+                        await SendMessage(message, null);
+                }
+            }
+
+            //finally, we need to set the task to run next time.
+            task.LastRun = DateTime.Now;
+            task.NextRun = task.RecurrenceUnit switch
+            {
+                Recurrence.Second => task.LastRun.AddSeconds(task.RecurrenceInterval),
+                Recurrence.Minute => task.LastRun.AddMinutes(task.RecurrenceInterval),
+                Recurrence.Daily => task.LastRun.AddDays(task.RecurrenceInterval),
+                Recurrence.Weekly => task.LastRun.AddDays(task.RecurrenceInterval * 7),
+                Recurrence.Monthly => task.LastRun.AddMonths(task.RecurrenceInterval),
+                Recurrence.Yearly => task.LastRun.AddYears(task.RecurrenceInterval),
+                _ => task.LastRun
+            };
+
+            //lets set the time back to 4-6.
+            task.HourStartTime = 16;
+            task.HourEndTime = 18;
+
+            return updated;
+        }
+
+    }
+}

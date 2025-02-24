@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace FalconsRoost.Models
 {
-    public class LaunchLog
+    public class SimpleLogEntry
     {
         public Guid Id { get; set; }
         public string Version { get; set; }
         public DateTime TimeStamp { get; set; }
         public string? Message { get; set; }
 
-        public LaunchLog()
+        public SimpleLogEntry()
         {
             Id = Guid.NewGuid();
             TimeStamp = DateTime.Now;
