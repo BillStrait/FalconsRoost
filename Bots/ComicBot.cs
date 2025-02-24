@@ -122,7 +122,7 @@ namespace FalconsRoost.Bots
         {
             //We only want the admin to be able to set this up.
             var adminId = _config.GetValue<ulong>("DiscordAdminId");
-            if (ctx.User.Id != adminId)
+            if (adminId != 0 && ctx.User.Id != adminId)
             {
                 await ctx.RespondAsync("You do not have permission to use this command.");
                 return;

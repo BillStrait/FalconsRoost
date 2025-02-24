@@ -21,10 +21,6 @@ namespace FalconsRoost.WebScrapers
 
         public async Task<bool> NCBDCheck(AlertTask task)
         {
-            //for testing we're going to set the hours to 20 and 21.
-            task.HourStartTime = 20;
-            task.HourEndTime = 21;
-
             var updated = false;
             var keepGoing = true;
             while (keepGoing)
@@ -71,10 +67,6 @@ namespace FalconsRoost.WebScrapers
                 Recurrence.Yearly => task.LastRun.AddYears(task.RecurrenceInterval),
                 _ => task.LastRun
             };
-
-            //lets set the time back to 4-6.
-            task.HourStartTime = 16;
-            task.HourEndTime = 18;
 
             return updated;
         }
