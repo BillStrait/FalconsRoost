@@ -22,10 +22,10 @@ namespace FalconsRoost.WebScrapers
         public async Task<bool> NCBDCheck(AlertTask task)
         {
             var updated = false;
-            var keepGoing = true;
-            while (keepGoing)
+            
+            while (task.ShouldRun())
             {
-                var target = "https://www.mycomicshop.com/newreleases?dw=-1";
+                var target = "https://www.mycomicshop.com/newreleases";
                 var page = GetHtml(target);
 
                 var comicsList = page.SelectNodes("//div[@class='addcart']//a");
@@ -34,14 +34,14 @@ namespace FalconsRoost.WebScrapers
                 
                 var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, centralTimeZone);
 
-                if (updated || task.RunOnce || task.HourEndTime <= centralTime.Hour)
+                if (updated || task.RunOnce)
                 {
-                    keepGoing = false;
+                    break;
                 }
                 else
                 {
-                    //we want to sleep between 5 and 72 seconds.
-                    var sleepTime = new Random().Next(5000, 72000);
+                    //we want to sleep between 5 and 18 seconds.
+                    var sleepTime = new Random().Next(5000, 18000);
                     Thread.Sleep(sleepTime);
                 }
             }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -23,6 +24,16 @@ namespace FalconsRoost.Models.Alerts
         public bool RunOnStart { get; set; }
         public bool CurrentlyRunning { get; set; } = false;
 
+        public bool ShouldRun()
+        {
+            var centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Central Standard Time" : "America/Chicago");
+            var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, centralTimeZone);
+            if (Enabled && !CurrentlyRunning && (RunOnStart || (centralTime.Hour >= HourStartTime && centralTime.Hour < HourEndTime && (DayToRunOn == -1 || (int)centralTime.DayOfWeek == DayToRunOn))))
+            {
+                return true;
+            }
+            return false;
+        }
     }
 
     public enum AlertType

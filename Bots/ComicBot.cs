@@ -13,6 +13,7 @@ using FalconsRoost.Models;
 using DSharpPlus;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using FalconsRoost.Models.Alerts;
+using Microsoft.EntityFrameworkCore;
 
 namespace FalconsRoost.Bots
 {
@@ -127,14 +128,19 @@ namespace FalconsRoost.Bots
                 await ctx.RespondAsync("You do not have permission to use this command.");
                 return;
             }
-            var alert = new AlertMessage()
+            var task = _dbContext.AlertTasks.Include("AlertMessages").FirstOrDefault(t => t.AlertType == AlertType.MCSNCBD);
+            if(task == null)
+            {
+                await ctx.RespondAsync("This alert has not been set up. Please contact the bot admin.");
+                return;
+            }
+
+            task.AlertMessages.Add(new AlertMessage()
             {
                 ChannelId = ctx.Channel.Id,
                 AlertTarget = "here",
-                Message = "New releases have been posted on [MyComicShop](https://www.mycomicshop.com). Check them out!"
-            };
-
-            _dbContext!.AlertMessages.Add(alert);
+                Message = "New releases have been posted on [MyComicShop](https://www.mycomicshop.com). Check them out!",
+            });
             await _dbContext.SaveChangesAsync();
 
             await ctx.RespondAsync("This channel will now receive alerts when new releases are posted on MyComicShop.");

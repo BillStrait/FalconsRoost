@@ -252,40 +252,54 @@ namespace FalconsRoost
         {
             if (!dbEnabled)
                 return;
-            
-            var tasks = db.AlertTasks.Where(t => t.Enabled && t.NextRun < DateTime.Now).ToList();
-            if(!tasks.Any())
-                return;
 
-            foreach (var task in tasks)
+            var tasks = db.AlertTasks.Include("AlertMessages").Where(t => t.Enabled && t.NextRun < DateTime.Now).ToList();
+            if (!tasks.Any())
+                return;
+            try
             {
-                //we need to run the task.
-                switch (task.AlertType)
+                foreach (var task in tasks)
                 {
-                    case AlertType.MCSNCBD:
-                        if(task.CurrentlyRunning)
+                    //we need to run the task.
+                    switch (task.AlertType)
+                    {
+                        case AlertType.MCSNCBD:
+                            if (task.CurrentlyRunning)
+                                break;
+                            if (task.DayToRunOn != (int)DateTime.Now.DayOfWeek)
+                                break;
+                            var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"));
+                            if (task.HourStartTime > DateTime.Now.Hour || task.HourEndTime < DateTime.Now.Hour)
+                                //mark the task as running.
+                                task.CurrentlyRunning = true;
+                            db.Update(task);
+                            await db.SaveChangesAsync();
+                            var mcsNCBDScraper = new MyComicShopScraper(_config);
+                            var result = await mcsNCBDScraper.NCBDCheck(task);
+                            task.CurrentlyRunning = false;
+                            db.Update(task);
                             break;
-                        //mark the task as running.
-                        task.CurrentlyRunning = true;
-                        db.Update(task);
-                        var mcsNCBDScraper = new MyComicShopScraper(_config);
-                        var result = await mcsNCBDScraper.NCBDCheck(task);
-                        task.CurrentlyRunning = false;
-                        db.Update(task);
-                        break;
-                    case AlertType.MCSRatio:
-                        var mscRatioScraper = new MyComicShopScraper(_config);
-                        break;
-                    default:
-                        var simpleLog = new SimpleLogEntry();
-                        simpleLog.Message = $"I don't know what to do with this task. It's AlertType is {task.AlertType}";
-                        db.LaunchLogs.Add(simpleLog);
-                        break;
+                        case AlertType.MCSRatio:
+                            var mscRatioScraper = new MyComicShopScraper(_config);
+                            break;
+                        default:
+                            var simpleLog = new SimpleLogEntry();
+                            simpleLog.Message = $"I don't know what to do with this task. It's AlertType is {task.AlertType}";
+                            db.LaunchLogs.Add(simpleLog);
+                            break;
+                    }
+                    task.LastRun = DateTime.Now;
+                    db.AlertTasks.Update(task);
                 }
-                task.LastRun = DateTime.Now;
-                db.AlertTasks.Update(task);
+                await db.SaveChangesAsync();
             }
-            await db.SaveChangesAsync();
+            catch (Exception ex)
+            {
+                var simpleLog = new SimpleLogEntry();
+                simpleLog.Message = $"I had an error running a scheduled task. {ex.Message}";
+                db.LaunchLogs.Add(simpleLog);
+                await db.SaveChangesAsync();
+            }
         }
     }
 }
