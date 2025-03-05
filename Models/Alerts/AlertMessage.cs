@@ -20,7 +20,15 @@ namespace FalconsRoost.Models.Alerts
 
             if (!string.IsNullOrWhiteSpace(AlertTarget))
             {
-                content = $"@{AlertTarget} - {content}";
+                //check to see if AlertTarget is a number.
+                if (ulong.TryParse(AlertTarget, out _))
+                {
+                    content = $"<@{AlertTarget}> - {content}";
+                }
+                else
+                {
+                    content = $"@{AlertTarget} - {content}";
+                }
             }
 
             return content;

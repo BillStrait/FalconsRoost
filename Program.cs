@@ -158,12 +158,7 @@ namespace FalconsRoost
             if (dbEnabled)
             {
                 serviceCollection.AddDbContext<FalconsRoostDBContext>(options => options.UseMySQL(connectionString ?? throw new ArgumentException("We could not find an sqlpassword or a connectionString during startup.")).EnableSensitiveDataLogging().EnableDetailedErrors());
-
-                
-
             }
-
-            
 
             Console.WriteLine("I've started up.");
             discord.MessageCreated += async delegate (DiscordClient s, MessageCreateEventArgs e)
@@ -274,13 +269,13 @@ namespace FalconsRoost
                                 task.CurrentlyRunning = true;
                             db.Update(task);
                             await db.SaveChangesAsync();
-                            var mcsNCBDScraper = new MyComicShopScraper(_config);
+                            var mcsNCBDScraper = new MyComicShopScraper(_config, db);
                             var result = await mcsNCBDScraper.NCBDCheck(task);
                             task.CurrentlyRunning = false;
                             db.Update(task);
                             break;
                         case AlertType.MCSRatio:
-                            var mscRatioScraper = new MyComicShopScraper(_config);
+                            var mscRatioScraper = new MyComicShopScraper(_config, db);
                             break;
                         default:
                             var simpleLog = new SimpleLogEntry();

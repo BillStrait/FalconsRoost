@@ -20,9 +20,11 @@ namespace FalconsRoost.Bots
     public class ComicBot : ExtendedCommandModule
     {
         IConfigurationRoot _config;
-        public ComicBot(IConfigurationRoot config, FalconsRoostDBContext? context) : base(context)
+        FalconsRoostDBContext _dbcontext;
+        public ComicBot(IConfigurationRoot config, FalconsRoostDBContext context) : base(context)
         {
             _config = config;
+            _dbcontext = context;
         }
 
         //[Command("bcadd"), Description("Add a comic to the vote for the channel's book club. Provide a link to the comic on league of comic geeks.")]
@@ -87,7 +89,7 @@ namespace FalconsRoost.Bots
                     return;
                 }
             }
-            var scraper = new LeagueOfComicGeeksScraper(_config);
+            var scraper = new LeagueOfComicGeeksScraper(_config, _dbcontext);
             var embeds = scraper.GetPullList(ctx, userName);
 
             foreach (var embed in embeds)
@@ -118,7 +120,7 @@ namespace FalconsRoost.Bots
 
         }
 
-        [Command("rmcsalert"), Description("Registers a channel to get notifications when MCS new releases are posted.")]
+        [Command("rmcsalert"), Description("Allows admin to register a channel to get notifications when MCS new releases are posted.")]
         public async Task RegisterAlertCommand(CommandContext ctx)
         {
             //We only want the admin to be able to set this up.
@@ -129,7 +131,7 @@ namespace FalconsRoost.Bots
                 return;
             }
             var task = _dbContext.AlertTasks.Include("AlertMessages").FirstOrDefault(t => t.AlertType == AlertType.MCSNCBD);
-            if(task == null)
+            if (task == null)
             {
                 await ctx.RespondAsync("This alert has not been set up. Please contact the bot admin.");
                 return;
@@ -144,6 +146,28 @@ namespace FalconsRoost.Bots
             await _dbContext.SaveChangesAsync();
 
             await ctx.RespondAsync("This channel will now receive alerts when new releases are posted on MyComicShop.");
+        }
+
+        [Command("testalert"), Description("Allows an admin to test the scraper service. Will @ the invoker.")]
+        public async Task TestMCSScraper(CommandContext ctx)
+        {
+            //We only want the admin to be able to set this up.
+            var adminId = _config.GetValue<ulong>("DiscordAdminId");
+            if (adminId != 0 && ctx.User.Id != adminId)
+            {
+                await ctx.RespondAsync("You do not have permission to use this command.");
+                return;
+            }
+
+            var task = new AlertTask()
+            {
+                AlertType = AlertType.MCSNCBD,
+                AlertMessages = new List<AlertMessage>() { new AlertMessage() { AlertTarget = ctx.User.Id.ToString(), Message = "MCS has books for sale.", ChannelId = ctx.Channel.Id } },
+                RunOnce = true
+            };
+
+            var scraper = new MyComicShopScraper(_config, _dbcontext);
+            var newReleases = scraper.NCBDCheck(task);
         }
     }
 }

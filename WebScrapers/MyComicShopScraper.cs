@@ -1,4 +1,5 @@
 ﻿using FalconsRoost.Models.Alerts;
+using FalconsRoost.Models.db;
 using Microsoft.Extensions.Configuration;
 using Org.BouncyCastle.Tls;
 using ScrapySharp.Network;
@@ -14,7 +15,7 @@ namespace FalconsRoost.WebScrapers
     public class MyComicShopScraper : BaseScraper
     {
         private readonly TimeZoneInfo centralTimeZone;
-        public MyComicShopScraper(IConfiguration config) : base(config)
+        public MyComicShopScraper(IConfiguration config, FalconsRoostDBContext context) : base(config, context)
         {
             centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Central Standard Time" : "America/Chicago");
         }
@@ -25,8 +26,17 @@ namespace FalconsRoost.WebScrapers
             
             while (task.ShouldRun())
             {
-                var target = "https://www.mycomicshop.com/newreleases";
+                var target = "https://www.mycomicshop.com/newreleases?dw=-1";
                 var page = GetHtml(target);
+
+                var errorNode = page.SelectSingleNode("//div[@id='FRERRORPARSEERROR']");
+                if (errorNode != null && task.RunOnce)
+                {
+                    //if we detect an error I want to know about it.
+                    var message = errorNode.InnerText;
+                    await SendMessage(task.AlertMessages.First(), message);
+                    return false;
+                }
 
                 var comicsList = page.SelectNodes("//div[@class='addcart']//a");
                 updated = comicsList?.Any() ?? false;

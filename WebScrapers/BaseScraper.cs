@@ -1,5 +1,7 @@
 ﻿using DSharpPlus;
+using FalconsRoost.Models;
 using FalconsRoost.Models.Alerts;
+using FalconsRoost.Models.db;
 using FalconsRoost.Models.DB.Migrations;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Configuration;
@@ -17,10 +19,12 @@ namespace FalconsRoost.WebScrapers
     {
         protected ScrapingBrowser _browser = new ScrapingBrowser();
         private IConfiguration _config;
+        private FalconsRoostDBContext _context;
 
-        public BaseScraper(IConfiguration config)
+        public BaseScraper(IConfiguration config, FalconsRoostDBContext context)
         {
             _config = config;
+            _context = context;
         }
 
         protected HtmlNode GetHtml(string url)
@@ -39,7 +43,16 @@ namespace FalconsRoost.WebScrapers
             }
             catch (Exception ex)
             {
-                throw new Exception("There was an error getting the page.", ex);
+                var message = $"There was an error getting the page. Did we get blocked? URL: {url} - EXCEPTION: {ex.Message}";
+
+                var log = new ChatMessageLog()
+                {
+                    Message = message,
+                    Source = "BaseScraper.GetHtml"
+                };
+                _context.ChatMessageLogs.Add(log);
+                _context.SaveChanges();
+                return HtmlNode.CreateNode($"<html><body><div id='FRERRORPARSEERROR'>{message}</body></html>");
             }
 
             return pageResult.Html;

@@ -1,5 +1,6 @@
 ﻿using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
+using FalconsRoost.Models.db;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Configuration;
 using ScrapySharp;
@@ -19,7 +20,7 @@ namespace FalconsRoost.WebScrapers
 {
     public class LeagueOfComicGeeksScraper : BaseScraper
     {
-        public LeagueOfComicGeeksScraper(IConfiguration config) : base(config)
+        public LeagueOfComicGeeksScraper(IConfiguration config, FalconsRoostDBContext context) : base(config, context)
         {
         }
 

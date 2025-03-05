@@ -32,7 +32,7 @@ namespace FalconsRoost.Models.Alerts
             {
                 return true;
             }
-            return false;
+            return RunOnce;
         }
     }
 
