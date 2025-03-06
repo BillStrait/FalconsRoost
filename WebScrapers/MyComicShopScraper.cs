@@ -41,9 +41,6 @@ namespace FalconsRoost.WebScrapers
                 var comicsList = page.SelectNodes("//div[@class='addcart']//a");
                 updated = comicsList?.Any() ?? false;
 
-                
-                var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, centralTimeZone);
-
                 if (updated || task.RunOnce)
                 {
                     break;

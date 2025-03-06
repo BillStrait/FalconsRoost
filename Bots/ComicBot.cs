@@ -14,6 +14,7 @@ using DSharpPlus;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using FalconsRoost.Models.Alerts;
 using Microsoft.EntityFrameworkCore;
+using System.Runtime.InteropServices;
 
 namespace FalconsRoost.Bots
 {
@@ -127,12 +128,16 @@ namespace FalconsRoost.Bots
             var adminId = _config.GetValue<ulong>("DiscordAdminId");
             if (adminId != 0 && ctx.User.Id != adminId)
             {
-                await ctx.RespondAsync("You do not have permission to use this command.");
+                var response = "You do not have permission to use this command.";
+                await LogResponse(ctx, response);
+                await ctx.RespondAsync(response);
                 return;
             }
             var task = _dbContext.AlertTasks.Include("AlertMessages").FirstOrDefault(t => t.AlertType == AlertType.MCSNCBD);
             if (task == null)
             {
+                var response = "This alert has not been set up. Please contact the bot admin.";
+                await LogResponse(ctx, response);
                 await ctx.RespondAsync("This alert has not been set up. Please contact the bot admin.");
                 return;
             }
@@ -155,11 +160,28 @@ namespace FalconsRoost.Bots
             var adminId = _config.GetValue<ulong>("DiscordAdminId");
             if (adminId != 0 && ctx.User.Id != adminId)
             {
-                await ctx.RespondAsync("You do not have permission to use this command.");
+                var response = "You do not have permission to use this command.";
+                await LogResponse(ctx, response);
+                await ctx.RespondAsync(response);
                 return;
             }
 
-            var task = new AlertTask()
+            try
+            {
+                var centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Central Standard Time" : "America/Chicago");
+                var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, centralTimeZone);
+                var message = $"The current time is {centralTime.ToString("HH:mm:ss")} and we're giving it a shot.";
+                await LogResponse(ctx, message);
+                await ctx.RespondAsync(message);
+            }
+            catch (Exception ex)
+            {
+                var message = $"An error occurred getting the time.: {ex.Message}";
+                await LogResponse(ctx, message);
+                await ctx.RespondAsync(message);
+
+            }
+                var task = new AlertTask()
             {
                 AlertType = AlertType.MCSNCBD,
                 AlertMessages = new List<AlertMessage>() { new AlertMessage() { AlertTarget = ctx.User.Id.ToString(), Message = "MCS has books for sale.", ChannelId = ctx.Channel.Id } },
@@ -167,7 +189,11 @@ namespace FalconsRoost.Bots
             };
 
             var scraper = new MyComicShopScraper(_config, _dbcontext);
-            var newReleases = scraper.NCBDCheck(task);
+            var newReleases = await scraper.NCBDCheck(task);
+
+            var finalMessage = $"The scraper has run. If you did not receive a message, something went wrong. The check returned {newReleases}.";
+            await LogResponse(ctx, finalMessage);
+            await ctx.RespondAsync(finalMessage);
         }
     }
 }
