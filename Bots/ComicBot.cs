@@ -173,6 +173,14 @@ namespace FalconsRoost.Bots
                 var message = $"The current time is {centralTime.ToString("HH:mm:ss")} and we're giving it a shot.";
                 await LogResponse(ctx, message);
                 await ctx.RespondAsync(message);
+
+                var tasks = _dbContext.AlertTasks.Include("AlertMessages").Where(t => t.Enabled).ToList();
+                var taskMessage = new StringBuilder();
+                foreach (var dbTask in tasks)
+                {
+                    taskMessage.AppendLine($"Task {dbTask.Id} is {(dbTask.ShouldRun() ? "running" : "not running")} and it's next run is {dbTask.NextRun}.");
+                }
+
             }
             catch (Exception ex)
             {
