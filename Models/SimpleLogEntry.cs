@@ -17,6 +17,7 @@ namespace FalconsRoost.Models
         {
             Id = Guid.NewGuid();
             TimeStamp = DateTime.Now;
+            Version = string.Empty;
         }
     }
 }

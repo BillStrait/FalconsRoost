@@ -157,7 +157,8 @@ namespace FalconsRoost
             
             if (dbEnabled)
             {
-                serviceCollection.AddDbContext<FalconsRoostDBContext>(options => options.UseMySQL(connectionString ?? throw new ArgumentException("We could not find an sqlpassword or a connectionString during startup.")).EnableSensitiveDataLogging().EnableDetailedErrors());
+                serviceCollection.AddDbContextFactory<FalconsRoostDBContext>(options => options.UseMySQL(connectionString ?? throw new ArgumentException("We could not find an sqlpassword or a connectionString during startup.")).EnableSensitiveDataLogging().EnableDetailedErrors());
+                serviceCollection.AddScoped<IMyComicShopScraper, MyComicShopScraper>();
             }
 
             Console.WriteLine("I've started up.");
@@ -167,15 +168,20 @@ namespace FalconsRoost
             };
 
             ServiceProvider services = serviceCollection.BuildServiceProvider();
-            db = services.GetRequiredService<FalconsRoostDBContext>();
 
-            if (db == null)
+            using(var scope = services.CreateScope())
             {
-                Console.WriteLine("I couldn't connect to the database.");
-                return;
+                db = scope.ServiceProvider.GetRequiredService<FalconsRoostDBContext>();
+                if (db == null)
+                {
+                    Console.WriteLine("I couldn't connect to the database.");
+                    return;
+                }
+
+                await db.Database.MigrateAsync();
             }
 
-            await db.Database.MigrateAsync();
+            
 
             var commands = discord.UseCommandsNext(new CommandsNextConfiguration()
             {
@@ -192,20 +198,22 @@ namespace FalconsRoost
             await discord.ConnectAsync();
 
             
-
-            var log = new SimpleLogEntry();
-            log.Message = "I've started up.";
-            log.Version = versionNumber;
-            if (dbEnabled)
+            using(var scope = services.CreateScope())
             {
-                db.LaunchLogs.Add(log);
-                await db.SaveChangesAsync();
+                db = scope.ServiceProvider.GetRequiredService<FalconsRoostDBContext>();
+                var log = new SimpleLogEntry();
+                log.Message = "I've started up.";
+                log.Version = versionNumber;
+                if (dbEnabled)
+                {
+                    db.LaunchLogs.Add(log);
+                    await db.SaveChangesAsync();
+                }
             }
-            
 
             //execute RunScheduledTasks every minute.
             var timer = new System.Timers.Timer(60000);
-            timer.Elapsed += async (sender, e) => await RunScheduledTasks();
+            timer.Elapsed += async (sender, e) => await RunScheduledTasks(services);
             timer.Start();
 
 
@@ -235,65 +243,75 @@ namespace FalconsRoost
                 .UseMySQL(connectionString);
 
             return new FalconsRoostDBContext(optionsBuilder.Options);
-
-
         }
 
         /// <summary>
         /// This method checks for tasks that need to fire on a regular basis.
         /// It should be called from the MainAsync method using a timer.
         /// </summary>
-        public static async Task RunScheduledTasks()
+        public static async Task RunScheduledTasks(ServiceProvider services)
         {
             if (!dbEnabled)
                 return;
 
-            var tasks = db.AlertTasks.Include("AlertMessages").Where(t => t.Enabled && t.NextRun < DateTime.Now).ToList();
-            if (!tasks.Any())
-                return;
-            try
+            using (var scope = services.CreateScope())
             {
-                foreach (var task in tasks)
+                var db = scope.ServiceProvider.GetRequiredService<FalconsRoostDBContext>();
+
+
+                var tasks = db.AlertTasks.Include("AlertMessages").Where(t => t.Enabled && t.NextRun < DateTime.Now).ToList();
+                if (!tasks.Any())
+                    return;
+                try
                 {
-                    //we need to run the task.
-                    switch (task.AlertType)
+                    foreach (var task in tasks)
                     {
-                        case AlertType.MCSNCBD:
-                            if (task.CurrentlyRunning)
+                        //we need to run the task.
+                        switch (task.AlertType)
+                        {
+                            case AlertType.MCSNCBD:
+                                if (task.CurrentlyRunning)
+                                    break;
+                                if (task.DayToRunOn != (int)DateTime.Now.DayOfWeek)
+                                    break;
+                                var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"));
+                                if (task.HourStartTime > DateTime.Now.Hour || task.HourEndTime < DateTime.Now.Hour)
+                                    //mark the task as running.
+                                    task.CurrentlyRunning = true;
+                                db.Update(task);
+                                await db.SaveChangesAsync();
+                                var mcsNCBDScraper = services.GetRequiredService<IMyComicShopScraper>();
+                                var result = await mcsNCBDScraper.NCBDCheck(task);
+                                task.CurrentlyRunning = false;
+                                db.Update(task);
                                 break;
-                            if (task.DayToRunOn != (int)DateTime.Now.DayOfWeek)
+                            case AlertType.MCSRatio:
+                                var mscRatioScraper = services.GetRequiredService<IMyComicShopScraper>();
                                 break;
-                            var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"));
-                            if (task.HourStartTime > DateTime.Now.Hour || task.HourEndTime < DateTime.Now.Hour)
-                                //mark the task as running.
-                                task.CurrentlyRunning = true;
-                            db.Update(task);
-                            await db.SaveChangesAsync();
-                            var mcsNCBDScraper = new MyComicShopScraper(_config, db);
-                            var result = await mcsNCBDScraper.NCBDCheck(task);
-                            task.CurrentlyRunning = false;
-                            db.Update(task);
-                            break;
-                        case AlertType.MCSRatio:
-                            var mscRatioScraper = new MyComicShopScraper(_config, db);
-                            break;
-                        default:
-                            var simpleLog = new SimpleLogEntry();
-                            simpleLog.Message = $"I don't know what to do with this task. It's AlertType is {task.AlertType}";
-                            db.LaunchLogs.Add(simpleLog);
-                            break;
+                            default:
+                                var simpleLog = new SimpleLogEntry
+                                {
+                                    Message = $"I don't know what to do with this task. It's AlertType is {task.AlertType}",
+                                    Version = versionNumber
+                                };
+                                db.LaunchLogs.Add(simpleLog);
+                                break;
+                        }
+                        task.LastRun = DateTime.Now;
+                        db.AlertTasks.Update(task);
                     }
-                    task.LastRun = DateTime.Now;
-                    db.AlertTasks.Update(task);
+                    await db.SaveChangesAsync();
                 }
-                await db.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                var simpleLog = new SimpleLogEntry();
-                simpleLog.Message = $"I had an error running a scheduled task. {ex.Message}";
-                db.LaunchLogs.Add(simpleLog);
-                await db.SaveChangesAsync();
+                catch (Exception ex)
+                {
+                    var simpleLog = new SimpleLogEntry
+                    {
+                        Message = $"I had an error running a scheduled task. {ex.Message}",
+                        Version = versionNumber
+                    };
+                    db.LaunchLogs.Add(simpleLog);
+                    await db.SaveChangesAsync();
+                }
             }
         }
     }

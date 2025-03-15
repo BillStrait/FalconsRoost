@@ -179,6 +179,8 @@ namespace FalconsRoost.Bots
                 foreach (var dbTask in tasks)
                 {
                     taskMessage.AppendLine($"Task {dbTask.Id} is {(dbTask.ShouldRun() ? "running" : "not running")} and it's next run is {dbTask.NextRun}.");
+                    await LogResponse(ctx, taskMessage.ToString());
+                    await ctx.RespondAsync(taskMessage.ToString());
                 }
 
             }
@@ -190,11 +192,11 @@ namespace FalconsRoost.Bots
 
             }
                 var task = new AlertTask()
-            {
-                AlertType = AlertType.MCSNCBD,
-                AlertMessages = new List<AlertMessage>() { new AlertMessage() { AlertTarget = ctx.User.Id.ToString(), Message = "MCS has books for sale.", ChannelId = ctx.Channel.Id } },
-                RunOnce = true
-            };
+                {
+                    AlertType = AlertType.MCSNCBD,
+                    AlertMessages = new List<AlertMessage>() { new AlertMessage() { AlertTarget = ctx.User.Id.ToString(), Message = "MCS has books for sale.", ChannelId = ctx.Channel.Id } },
+                    RunOnce = true
+                };
 
             var scraper = new MyComicShopScraper(_config, _dbcontext);
             var newReleases = await scraper.NCBDCheck(task);

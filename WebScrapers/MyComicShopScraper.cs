@@ -12,12 +12,21 @@ using System.Threading.Tasks;
 
 namespace FalconsRoost.WebScrapers
 {
-    public class MyComicShopScraper : BaseScraper
+    public interface IMyComicShopScraper
+    {
+        Task<bool> NCBDCheck(AlertTask task);
+    }
+
+    public class MyComicShopScraper : BaseScraper, IMyComicShopScraper
     {
         private readonly TimeZoneInfo centralTimeZone;
+        private readonly FalconsRoostDBContext _context;
+        private readonly IConfiguration _config;
         public MyComicShopScraper(IConfiguration config, FalconsRoostDBContext context) : base(config, context)
         {
             centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Central Standard Time" : "America/Chicago");
+            _context = context;
+            _config = config;
         }
 
         public async Task<bool> NCBDCheck(AlertTask task)
