@@ -259,7 +259,7 @@ namespace FalconsRoost
                 var db = scope.ServiceProvider.GetRequiredService<FalconsRoostDBContext>();
 
 
-                var tasks = db.AlertTasks.Include("AlertMessages").Where(t => t.Enabled && t.NextRun < DateTime.Now).ToList();
+                var tasks = db.AlertTasks.Include("AlertMessages").Where(t => t.ShouldRun()).ToList();
                 if (!tasks.Any())
                     return;
                 try

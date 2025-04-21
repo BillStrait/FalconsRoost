@@ -26,13 +26,22 @@ namespace FalconsRoost.Models.Alerts
 
         public bool ShouldRun()
         {
-            var centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Central Standard Time" : "America/Chicago");
-            var centralTime = TimeZoneInfo.ConvertTime(DateTime.Now, centralTimeZone);
-            if (Enabled && !CurrentlyRunning && (RunOnStart || (centralTime.Hour >= HourStartTime && centralTime.Hour < HourEndTime && (DayToRunOn == -1 || (int)centralTime.DayOfWeek == DayToRunOn))))
-            {
-                return true;
-            }
-            return RunOnce;
+            var centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(
+                RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                    ? "Central Standard Time"
+                    : "America/Chicago");
+
+            var centralTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, centralTimeZone);
+
+            if (NextRun > DateTime.UtcNow) return false;
+            if (!Enabled || CurrentlyRunning) return false;
+
+            if (RunOnce) return true;
+
+            bool inHourWindow = centralTime.Hour >= HourStartTime && centralTime.Hour < HourEndTime;
+            bool correctDay = DayToRunOn == -1 || (int)centralTime.DayOfWeek == DayToRunOn;
+
+            return RunOnStart || (inHourWindow && correctDay);
         }
     }
 
