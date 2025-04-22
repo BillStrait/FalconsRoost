@@ -150,7 +150,7 @@ namespace FalconsRoost
             });
             var connectionString = _config.GetValue<string>("connectionString");
 
-             var serviceCollection = new ServiceCollection()
+            var serviceCollection = new ServiceCollection()
                 .AddSingleton<IConfigurationRoot>(_config);
 
 
@@ -213,7 +213,32 @@ namespace FalconsRoost
 
             //execute RunScheduledTasks every minute.
             var timer = new System.Timers.Timer(60000);
-            timer.Elapsed += async (sender, e) => await RunScheduledTasks(services);
+            timer.Elapsed += async (sender, e) =>
+            {
+                try
+                {
+                    await RunScheduledTasks(services);
+                }
+                catch (Exception ex)
+                {
+                    var message = $"I had an error running a scheduled task. {ex.Message}";
+                    var simpleLog = new SimpleLogEntry
+                    {
+                        Message = message,
+                        Version = versionNumber
+                    };
+                    using (var scope = services.CreateScope())
+                    {
+                        db = scope.ServiceProvider.GetRequiredService<FalconsRoostDBContext>();
+                        db.LaunchLogs.Add(simpleLog);
+                        await db.SaveChangesAsync();
+                    }
+                    //lets spit something to the console as well.
+                    Console.WriteLine(message);
+
+                }
+            };
+
             timer.Start();
 
 
@@ -259,7 +284,8 @@ namespace FalconsRoost
                 var db = scope.ServiceProvider.GetRequiredService<FalconsRoostDBContext>();
 
 
-                var tasks = db.AlertTasks.Include("AlertMessages").Where(t => t.ShouldRun()).ToList();
+                var tasks = await db.AlertTasks.Where(c=>c.Enabled && !c.CurrentlyRunning).Include("AlertMessages").ToListAsync();
+                tasks = tasks.Where(c=>c.ShouldRun()).ToList();
                 if (!tasks.Any())
                     return;
                 try
