@@ -20,12 +20,14 @@ namespace FalconsRoost.Bots
 {
     public class ComicBot : ExtendedCommandModule
     {
-        IConfigurationRoot _config;
-        FalconsRoostDBContext _dbcontext;
-        public ComicBot(IConfigurationRoot config, FalconsRoostDBContext context) : base(context)
+        private IConfigurationRoot _config;
+        private FalconsRoostDBContext _dbcontext;
+        private IShopifyAlert _thirdEyeScraper;
+        public ComicBot(IConfigurationRoot config, FalconsRoostDBContext context, IShopifyAlert thirdEyeScraper) : base(context)
         {
             _config = config;
             _dbcontext = context;
+            _thirdEyeScraper = thirdEyeScraper;
         }
 
         //[Command("bcadd"), Description("Add a comic to the vote for the channel's book club. Provide a link to the comic on league of comic geeks.")]
@@ -191,12 +193,12 @@ namespace FalconsRoost.Bots
                 await ctx.RespondAsync(message);
 
             }
-                var task = new AlertTask()
-                {
-                    AlertType = AlertType.MCSNCBD,
-                    AlertMessages = new List<AlertMessage>() { new AlertMessage() { AlertTarget = ctx.User.Id.ToString(), Message = "MCS has books for sale.", ChannelId = ctx.Channel.Id } },
-                    RunOnce = true
-                };
+            var task = new AlertTask()
+            {
+                AlertType = AlertType.MCSNCBD,
+                AlertMessages = new List<AlertMessage>() { new AlertMessage() { AlertTarget = ctx.User.Id.ToString(), Message = "MCS has books for sale.", ChannelId = ctx.Channel.Id } },
+                RunOnce = true
+            };
 
             var scraper = new MyComicShopScraper(_config, _dbcontext);
             var newReleases = await scraper.NCBDCheck(task);
@@ -204,6 +206,69 @@ namespace FalconsRoost.Bots
             var finalMessage = $"The scraper has run. If you did not receive a message, something went wrong. The check returned {newReleases}.";
             await LogResponse(ctx, finalMessage);
             await ctx.RespondAsync(finalMessage);
+        }
+
+        [Command("3esearch"), Description("Search for a comic on Third Eye Comics. Enables you to create a stock alert.")]
+        public async Task ThirdEyeSearchCommand(CommandContext ctx, [RemainingText] string searchString)
+        {
+            var player = await GetPlayerAndUpdateMessageHistory(ctx);
+            string response = string.Empty;
+            if (string.IsNullOrWhiteSpace(searchString))
+            {
+                response = "You need to provide a search string.";
+                await LogResponse(ctx, response);
+                await ctx.RespondAsync(response);
+                return;
+            }
+
+            var userId = ctx.User.Id;
+            var channelId = ctx.Channel.Id;
+            var embeds = await _thirdEyeScraper.SearchForComic(searchString, channelId, userId);
+
+
+            foreach (var embed in embeds)
+            {
+                await LogResponse(ctx, embed.Title);
+                await ctx.RespondAsync(embed: embed);
+            }
+        }
+
+        [Command("3eAlert"), Description("Register a stock alert for a comic on Third Eye Comics.")]
+        public async Task ThirdEyeAlertCommand(CommandContext ctx, [RemainingText] string targetGuid)
+        {
+            var player = await GetPlayerAndUpdateMessageHistory(ctx);
+            string message = string.Empty;
+            if (string.IsNullOrWhiteSpace(targetGuid))
+            {
+                message = "You need to provide a target id. The full command is listed after you search for a comic with 3esearch";
+                await LogResponse(ctx, message);
+                await ctx.RespondAsync(message);
+                return;
+            }
+
+            var alert = TempAlertCache.Get(targetGuid);
+            if(alert == null)
+            {
+                message = "That target does not exist or has expired. Please try again.";
+                await LogResponse(ctx, message);
+                await ctx.RespondAsync(message);
+                return;
+            }
+
+            if(alert.IsWatched)
+            {
+                message = "That target is already being watched. This channel will be notified if the item becomes available within 24 hours.";
+                await LogResponse(ctx, message);
+                await ctx.RespondAsync(message);
+                return;
+            }
+
+            TempAlertCache.Activate(targetGuid);
+
+            message = $"You are now watching {alert.Title} for availability. This channel will be notified if the item becomes available within 24 hours.";
+            await LogResponse(ctx, message);
+            await ctx.RespondAsync(message);
+
         }
     }
 }

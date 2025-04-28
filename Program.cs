@@ -151,7 +151,8 @@ namespace FalconsRoost
             var connectionString = _config.GetValue<string>("connectionString");
 
             var serviceCollection = new ServiceCollection()
-                .AddSingleton<IConfigurationRoot>(_config);
+                .AddSingleton<IConfigurationRoot>(_config)
+                .AddSingleton<IConfiguration>(_config);
 
 
             
@@ -159,6 +160,7 @@ namespace FalconsRoost
             {
                 serviceCollection.AddDbContextFactory<FalconsRoostDBContext>(options => options.UseMySQL(connectionString ?? throw new ArgumentException("We could not find an sqlpassword or a connectionString during startup.")).EnableSensitiveDataLogging().EnableDetailedErrors());
                 serviceCollection.AddScoped<IMyComicShopScraper, MyComicShopScraper>();
+                serviceCollection.AddScoped<IShopifyAlert, ThirdEyeScraper>();
             }
 
             Console.WriteLine("I've started up.");
@@ -211,8 +213,12 @@ namespace FalconsRoost
                 }
             }
 
+
+            //run scheduled tasks at startup, then set a timer.
+            await RunScheduledTasks(services);
+
             //execute RunScheduledTasks every minute.
-            var timer = new System.Timers.Timer(60000);
+            var timer = new System.Timers.Timer(new TimeSpan(0,0,30));
             timer.Elapsed += async (sender, e) =>
             {
                 try
@@ -238,10 +244,7 @@ namespace FalconsRoost
 
                 }
             };
-
             timer.Start();
-
-
 
             await Task.Delay(-1);
         }
@@ -283,11 +286,12 @@ namespace FalconsRoost
             {
                 var db = scope.ServiceProvider.GetRequiredService<FalconsRoostDBContext>();
 
+                //we always want to run 3rd eye checker.
+                var thirdEyeScraper = services.GetRequiredService<IShopifyAlert>();
+                var thirdEyeTask = thirdEyeScraper.ProcessThirdEyeMonitors();
 
                 var tasks = await db.AlertTasks.Where(c=>c.Enabled && !c.CurrentlyRunning).Include("AlertMessages").ToListAsync();
                 tasks = tasks.Where(c=>c.ShouldRun()).ToList();
-                if (!tasks.Any())
-                    return;
                 try
                 {
                     foreach (var task in tasks)
@@ -338,6 +342,7 @@ namespace FalconsRoost
                     db.LaunchLogs.Add(simpleLog);
                     await db.SaveChangesAsync();
                 }
+                await thirdEyeTask;
             }
         }
     }

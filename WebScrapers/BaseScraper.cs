@@ -1,4 +1,5 @@
 ﻿using DSharpPlus;
+using DSharpPlus.Entities;
 using FalconsRoost.Models;
 using FalconsRoost.Models.Alerts;
 using FalconsRoost.Models.db;
@@ -70,6 +71,65 @@ namespace FalconsRoost.WebScrapers
             var channel = await connection.GetChannelAsync(message.ChannelId);
             var messageContent = message.GenerateAlertMessage(content);
             await channel.SendMessageAsync(messageContent);
+        }
+
+        protected async Task SendMessage(string content, ulong channelId)
+        {
+            var connection = new DiscordClient(new DiscordConfiguration
+            {
+                Token = _config.GetValue<string>("DiscordToken"),
+                TokenType = TokenType.Bot,
+                Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents),
+            });
+            var channel = await connection.GetChannelAsync(channelId);
+            await channel.SendMessageAsync(content);
+        }
+
+        protected async Task SendMessage(DiscordEmbed embed, ulong channelId)
+        {
+            var connection = new DiscordClient(new DiscordConfiguration
+            {
+                Token = _config.GetValue<string>("DiscordToken"),
+                TokenType = TokenType.Bot,
+                Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents),
+            });
+            var channel = await connection.GetChannelAsync(channelId);
+            await channel.SendMessageAsync("@here", embed: embed);
+        }
+
+        protected async Task UpdateTask(AlertTask task)
+        {
+            var dbTask = _context.AlertTasks.FirstOrDefault(t => t.Id == task.Id);
+            if (dbTask != null)
+            {
+                dbTask.Enabled = task.Enabled;
+                dbTask.CurrentlyRunning = task.CurrentlyRunning;
+                dbTask.LastRun = task.LastRun;
+                dbTask.NextRun = task.NextRun;
+                dbTask.AlertMessages = task.AlertMessages;
+                dbTask.AlertType = task.AlertType;
+                dbTask.RecurrenceUnit = task.RecurrenceUnit;
+                dbTask.RecurrenceInterval = task.RecurrenceInterval;
+                dbTask.DayToRunOn = task.DayToRunOn;
+                dbTask.HourStartTime = task.HourStartTime;
+                dbTask.HourEndTime = task.HourEndTime;
+                dbTask.RunOnce = task.RunOnce;
+                dbTask.RunOnStart = task.RunOnStart;
+
+                _context.AlertTasks.Update(dbTask);
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        protected async Task<string> GetJSON(string url)
+        {
+            var result = await _browser.DownloadStringAsync(new Uri(url));
+            if (result != null)
+            {
+                var json = result.ToString();
+                return json;
+            }
+            return string.Empty;
         }
     }
 }

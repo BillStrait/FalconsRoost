@@ -1,14 +1,9 @@
 ﻿using FalconsRoost.Models.Alerts;
 using FalconsRoost.Models.db;
+using HtmlAgilityPack;
 using Microsoft.Extensions.Configuration;
-using Org.BouncyCastle.Tls;
-using ScrapySharp.Network;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace FalconsRoost.WebScrapers
 {
@@ -22,6 +17,10 @@ namespace FalconsRoost.WebScrapers
         private readonly TimeZoneInfo centralTimeZone;
         private readonly FalconsRoostDBContext _context;
         private readonly IConfiguration _config;
+
+
+
+
         public MyComicShopScraper(IConfiguration config, FalconsRoostDBContext context) : base(config, context)
         {
             centralTimeZone = TimeZoneInfo.FindSystemTimeZoneById(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "Central Standard Time" : "America/Chicago");
@@ -32,7 +31,7 @@ namespace FalconsRoost.WebScrapers
         public async Task<bool> NCBDCheck(AlertTask task)
         {
             var updated = false;
-            
+
             while (task.ShouldRun())
             {
                 var target = "https://www.mycomicshop.com/newreleases?dw=-1";
@@ -86,6 +85,5 @@ namespace FalconsRoost.WebScrapers
 
             return updated;
         }
-
     }
 }
