@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
+using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using FalconsRoost;
 using FalconsRoost.Bots;
@@ -19,6 +20,7 @@ using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MySql.EntityFrameworkCore.Extensions;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace FalconsRoost
 {
@@ -146,8 +148,21 @@ namespace FalconsRoost
                 Token = _config.GetValue<string>("DiscordToken"),
                 TokenType = TokenType.Bot,
                 Intents = (DiscordIntents.AllUnprivileged | DiscordIntents.MessageContents),
-
             });
+
+            discord.ComponentInteractionCreated += async (s, e) =>
+            {
+                if (e.Id.StartsWith("e3Alert:"))
+                {
+                    var guid = e.Id.Substring(8);
+                    var response = TempAlertCache.AttemptRegister(guid);
+                    await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
+                        .WithContent(response));
+                }
+            };
+
+
+
             var connectionString = _config.GetValue<string>("connectionString");
 
             var serviceCollection = new ServiceCollection()

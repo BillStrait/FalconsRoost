@@ -223,13 +223,13 @@ namespace FalconsRoost.Bots
 
             var userId = ctx.User.Id;
             var channelId = ctx.Channel.Id;
-            var embeds = await _thirdEyeScraper.SearchForComic(searchString, channelId, userId);
+            var messageBuilders = await _thirdEyeScraper.SearchForComic(searchString, channelId, userId);
 
 
-            foreach (var embed in embeds)
+            foreach (var messageBuilder in messageBuilders)
             {
-                await LogResponse(ctx, embed.Title);
-                await ctx.RespondAsync(embed: embed);
+                await LogResponse(ctx, messageBuilder.Content);
+                await ctx.RespondAsync(messageBuilder);
             }
         }
 
@@ -246,26 +246,7 @@ namespace FalconsRoost.Bots
                 return;
             }
 
-            var alert = TempAlertCache.Get(targetGuid);
-            if(alert == null)
-            {
-                message = "That target does not exist or has expired. Please try again.";
-                await LogResponse(ctx, message);
-                await ctx.RespondAsync(message);
-                return;
-            }
-
-            if(alert.IsWatched)
-            {
-                message = "That target is already being watched. This channel will be notified if the item becomes available within 24 hours.";
-                await LogResponse(ctx, message);
-                await ctx.RespondAsync(message);
-                return;
-            }
-
-            TempAlertCache.Activate(targetGuid);
-
-            message = $"You are now watching {alert.Title} for availability. This channel will be notified if the item becomes available within 24 hours.";
+            message = TempAlertCache.AttemptRegister(targetGuid);
             await LogResponse(ctx, message);
             await ctx.RespondAsync(message);
 

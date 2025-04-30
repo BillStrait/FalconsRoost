@@ -56,6 +56,32 @@ namespace FalconsRoost.Models.Alerts
                 .Where(kvp => (now - kvp.Value.Timestamp) < expiration)
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         }
+
+        public static string AttemptRegister(string? targetGuid)
+        {
+            var message = string.Empty;
+            if(string.IsNullOrWhiteSpace(targetGuid))
+            {
+                message = "Please provide a valid target ID.";
+                return message;
+            }
+            var alert = TempAlertCache.Get(targetGuid);
+            if (alert == null)
+            {
+                message = "That target does not exist or has expired. Please try again.";
+            }
+            else if (alert.IsWatched)
+            {
+                message = "That target is already being watched. This channel will be notified if the item becomes available within 24 hours.";
+            }
+            else
+            {
+                TempAlertCache.Activate(targetGuid);
+                message = $"You are now watching {alert.Title} for availability. This channel will be notified if the item becomes available within 24 hours.";
+            }
+            
+            return message;
+        }
     }
 
     public class TempAlertRecord

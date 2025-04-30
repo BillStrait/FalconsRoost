@@ -1,4 +1,5 @@
-﻿using DSharpPlus.Entities;
+﻿using DSharpPlus;
+using DSharpPlus.Entities;
 using FalconsRoost.Models.Alerts;
 using FalconsRoost.Models.db;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +14,7 @@ namespace FalconsRoost.WebScrapers
     public interface IShopifyAlert
     {
         //public Task<bool> WatchPageForSale(AlertTask task);
-        public Task<List<DiscordEmbed>> SearchForComic(string searchTerm, ulong userId, ulong channelId);
+        public Task<List<DiscordMessageBuilder>> SearchForComic(string searchTerm, ulong userId, ulong channelId);
         public Task ProcessThirdEyeMonitors();
     }
 
@@ -27,14 +28,14 @@ namespace FalconsRoost.WebScrapers
         {
         }
 
-        public async Task<List<DiscordEmbed>> SearchForComic(string searchTerm, ulong channelId, ulong userId)
+        public async Task<List<DiscordMessageBuilder>> SearchForComic(string searchTerm, ulong channelId, ulong userId)
         {
             //so, the search term could come in like "I am a query" or "taco" - we want to replace spaces with +
             //and make sure we don't have any weird characters.
             var searchUrl = _searchUrl + "?q=" + UrlEncoder.Default.Encode(searchTerm) + "&type=products&view=samitaLabelsProductsJson";
             var payloadJson = await GetJSON(searchUrl);
             var success = !string.IsNullOrWhiteSpace(payloadJson);
-            var embeds = new List<DiscordEmbed>();
+            var messages = new List<DiscordMessageBuilder>();
             if (success)
             {
                 //their json is broken, so we need to fix it.
@@ -47,9 +48,12 @@ namespace FalconsRoost.WebScrapers
                 catch(Exception e)
                 {
                     //if we get an error, we want to know about it.
-                    var message = $"There was an error getting the page. Did we get blocked? URL: {searchUrl} - EXCEPTION: {e.Message}";
-                    await SendMessage(new AlertMessage(), message);
-                    return embeds;
+                    var message = new DiscordMessageBuilder()
+                    {
+                        Content = $"There was an error getting the page. Did we get blocked? URL: {searchUrl} - EXCEPTION: {e.Message}",
+                    };
+                    messages.Add(message);
+                    return messages;
                 }
                 
                 if (searchPayload != null)
@@ -63,8 +67,14 @@ namespace FalconsRoost.WebScrapers
                             Title = "No products found.",
                             Color = DiscordColor.Red,
                         }.Build();
-                        embeds.Add(embed);
-                        return embeds;
+                        var message = new DiscordMessageBuilder()
+                        {
+                            Content = $"No products found for {searchTerm}.",
+                        }.WithEmbed(embed);
+
+
+                        messages.Add(message);
+                        return messages;
                     }
 
                     //we only want to send the top 5.
@@ -81,7 +91,7 @@ namespace FalconsRoost.WebScrapers
                         if (!string.IsNullOrWhiteSpace(product.price))
                         {
                             var price = decimal.Parse(product.price) / 100;
-                            formattedPrice = string.Format("{0:C}", price);
+                            formattedPrice = string.Format(new System.Globalization.CultureInfo("en-US"), "{0:C}", price);
                         }
                         else if (product.variants != null && product.variants.Any())
                         {
@@ -110,7 +120,15 @@ namespace FalconsRoost.WebScrapers
                             .WithDescription(description)
                             .WithFooter($"Register for an alert with !3eAlert {guid}")
                             .Build();
-                            embeds.Add(embed);
+
+                            var button = new DiscordButtonComponent(ButtonStyle.Primary, $"e3Alert:{guid}", "Create Alert", false, null);
+
+                            var message = new DiscordMessageBuilder()
+                            {
+                                Content = $"Found product: {title}",
+                            }.WithEmbed(embed).AddComponents(button);
+
+                            messages.Add(message);
 
                             //we also want to register this in the alert cache.
                             TempAlertCache.Register(guid.ToString(), handle, title, channelId, userId);
@@ -129,9 +147,13 @@ namespace FalconsRoost.WebScrapers
                     Title = "Failed to get information from Third Eye.",
                     Color = DiscordColor.Red,
                 }.Build();
-                embeds.Add(embed);
+                var message = new DiscordMessageBuilder()
+                {
+                    Content = $"Failed to get information from Third Eye. URL: {searchUrl}",
+                }.WithEmbed(embed);
+                messages.Add(message);
             }
-            return embeds;
+            return messages;
 
         }
 
