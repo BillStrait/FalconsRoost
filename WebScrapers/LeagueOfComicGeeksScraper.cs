@@ -51,7 +51,14 @@ namespace FalconsRoost.WebScrapers
             //if we still have no comicNodes, we should just return.
             if (comicNodes == null || comicNodes.Count == 0)
             {
-                embed.WithFooter("No comics found.");
+                var debugPath = Path.Combine(
+                    AppContext.BaseDirectory,
+                    $"locg-pulllist-debug-{userName}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.html"
+                );
+
+                File.WriteAllText(debugPath, pullListPage.OwnerDocument.DocumentNode.OuterHtml);
+
+                embed.WithFooter($"No comics found. Debug HTML saved: {Path.GetFileName(debugPath)}");
                 return new List<DiscordEmbedBuilder> { embed };
             }
 
