@@ -35,13 +35,10 @@ namespace FalconsRoost.WebScrapers
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
             _browser.Headers["Accept"] =
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8";
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
 
             _browser.Headers["Accept-Language"] =
                 "en-US,en;q=0.9";
-
-            _browser.Headers["Accept-Encoding"] =
-                "gzip, deflate, br";
 
             _browser.Headers["Cache-Control"] =
                 "no-cache";
@@ -52,17 +49,6 @@ namespace FalconsRoost.WebScrapers
             _browser.Headers["Upgrade-Insecure-Requests"] =
                 "1";
 
-            _browser.Headers["Sec-Fetch-Dest"] =
-                "document";
-
-            _browser.Headers["Sec-Fetch-Mode"] =
-                "navigate";
-
-            _browser.Headers["Sec-Fetch-Site"] =
-                "none";
-
-            _browser.Headers["Sec-Fetch-User"] =
-                "?1";
             _browser.AllowAutoRedirect = true;
             _browser.AllowMetaRedirect = true;
             _browser.IgnoreCookies = false;
